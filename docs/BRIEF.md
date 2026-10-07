@@ -83,6 +83,7 @@ tools only.
 - Flow inside a function (if / loop branches); needs our own parser.
 - Variables and constants as starting points.
 - Saving and sharing a graph.
+- Explain with the user's own API key (VS Code's model API is the only provider in version 1).
 - Export as PNG; filter and pin cards; "Add to current graph" (moved here in Phase 1, see Changes in `docs/PLAN.md`).
 
 ### Not building
@@ -163,29 +164,48 @@ flowchart TD
 4. **Language server starting:** "The language server is still starting. Try
    again in a few seconds." with a Retry button.
 5. **Too big:** "Showing 150 of 420 cards. Expand a card to see more."
-6. **Explain consent notice:** says what will be sent and to which provider.
+6. **Explain consent notice:** says what will be sent and to which model.
 
-## 10. Visual direction (chosen in Phase 0)
+## 10. Visual direction (updated in Phase 1)
 
-You asked me to choose, so I chose **"native card"**: it looks like part of VS
-Code and follows whatever theme the user has, rather than bringing its own
-colours. It also avoids a whole class of dark/light/high-contrast bugs.
+**"Native+"**: the base follows the user's VS Code theme (backgrounds, text,
+fonts), so it never looks out of place. On top of that, Prophasis has its own
+modern accent palette, depth and motion, so the graph is striking in a
+screenshot. In High Contrast themes the accents step back and only theme
+colours are used. (Phase 0 chose plain "native card"; changed at your request
+for an eye-catching look, see Changes in `docs/PLAN.md`.)
+
+**Kind palette** (left stripe, header tint, icon, arrow colour). Two shades:
+the dark-theme shade is lighter, the light-theme shade deeper, so both read
+well on their background. Contrast is checked in Phase 3.
+
+| Kind | Dark themes | Light themes |
+|---|---|---|
+| Function | `#38BDF8` sky | `#0284C7` |
+| Method | `#A78BFA` violet | `#7C3AED` |
+| Constructor | `#F472B6` pink | `#DB2777` |
+| Class | `#FBBF24` amber | `#D97706` |
+| Interface | `#34D399` emerald | `#059669` |
+| Struct / enum | `#FB923C` orange | `#EA580C` |
+| Start card and focus | `#818CF8` indigo | `#4F46E5` |
+| Plain arrows | `#64748B` slate | `#94A3B8` |
 
 **Design rules**
 
 | Rule | Value |
 |---|---|
-| Colours | Only VS Code theme variables (`--vscode-*`). No hard-coded colours except fallbacks in the mockup. |
-| Card accent | A coloured left stripe by kind, from VS Code's symbol colours: function, method, class, interface. (Variable names to confirm in Phase 1.) |
+| Surfaces and text | VS Code theme variables (`--vscode-*`); card background is the editor background lifted with a 6% tint of the kind colour |
+| Card | 8 px radius, 1 px border, soft two-layer shadow; kind stripe 3 px; kind icon in a tinted 20 px circle |
+| Start card | Indigo outline with a soft glow |
 | UI font | `--vscode-font-family`, 12–13 px |
 | Code font | `--vscode-editor-font-family` for names and signatures |
 | Spacing | 4 px scale: 4, 8, 12, 16, 24 |
-| Corners | Cards 6 px radius |
 | Card width | 240 px (function / method), 280 px (class) |
-| Arrows | 1.5 px lines, arrowhead, round order badge (18 px) |
+| Canvas | Subtle dot grid; zoom and pan; minimap in the corner |
+| Arrows | 1.5 px smooth curves in the caller's kind colour; round order badge (18 px); hovering a card highlights its path and dims the rest |
 | Direction | Left to right: callers on the left, callees on the right |
-| Motion | 150 ms ease on expand; none when the user prefers reduced motion |
-| High contrast | Solid borders, no reliance on colour alone (kind is also shown as text/icon) |
+| Motion | New cards fade and slide in (180 ms); arrows draw in; none when the user prefers reduced motion |
+| High contrast | Theme colours only, solid borders, no shadows or glow; kind always shown as text and icon, never colour alone |
 
 ## 11. Decisions made in Phase 0
 

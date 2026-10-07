@@ -180,9 +180,9 @@ mean every language answers it correctly. That is tested per language in Phase 1
 | `prophasis.maxCards` | 150 | Cards on screen before the "N more" summary. |
 | `prophasis.showExternalCode` | false | Show library and standard-library symbols. |
 | `prophasis.excludeGlobs` | empty | File patterns to hide from the graph (for example test folders). |
-| `prophasis.explain.provider` | `vscode` | `vscode` (VS Code's language model API) or `ownKey`. |
 | `prophasis.explain.includeBodies` | false | For "Explain this class": include method bodies, not only signatures. |
 | `prophasis.explain.maxCharacters` | 12000 | Hard cap on code sent in one request. |
 
-The user's own API key is **not** a setting. It is stored with VS Code's
-SecretStorage and set through a command.
+Explain uses VS Code's Language Model API only. A provider using the user's
+own API key is planned for later; when added, the key goes in VS Code's
+SecretStorage, never in a setting.

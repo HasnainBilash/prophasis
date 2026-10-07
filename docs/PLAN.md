@@ -32,7 +32,7 @@ database and no login. This is the stack for Prophasis.
 | CI | GitHub Actions | Lint, type check, tests, build, package on every push | Free |
 | Packaging and publishing | `vsce`, VS Code Marketplace (and Open VSX) | Where extensions live | Free |
 | Lint / format | ESLint + Prettier | Consistency | Free |
-| Explanations | Provider interface: VS Code's Language Model API, or the user's own key in SecretStorage | Swappable, no key for us to manage | Costs belong to the user's own model access |
+| Explanations | VS Code's Language Model API, behind a small provider interface (an own-key provider can be added later) | No key for us or the user to manage | Uses the user's own Copilot access |
 
 Not used, on purpose: Next.js, Tailwind, PostgreSQL, Prisma, Auth.js, Vercel,
 Vercel Cron, Playwright, Redis, queues. None has a reason here.
@@ -236,7 +236,6 @@ project, before and after any optimisation.
 - All messages validated with Zod in both directions.
 - No network in the core extension. Only Explain talks to a model, and only
   after consent, and only with the selected code, capped by `explain.maxCharacters`.
-- A user's API key lives in SecretStorage, never in settings, logs or the repo.
 - Prophasis never edits the user's files.
 - No telemetry.
 - Dependency audit on every release; accepted risks written down with the reason.
@@ -251,7 +250,7 @@ testing per phase. Each phase follows your cycle: plan → build → verify myse
 commit locally → report → you test → your green signal → squash and push.
 
 **The fast route:** a usable version (functions, methods, classes, calls,
-called by, click-to-jump) exists at the end of **Phase 3, about 12 hours of
+called by, click-to-jump) exists at the end of **Phase 3, about 13.5 hours of
 build time.** Everything after that adds depth and polish.
 
 ### Phase 1: Setup and feasibility check (about 2.5 hours)
@@ -272,10 +271,11 @@ build time.** Everything after that adds depth and polish.
 - [ ] Cache with file-version keys; 5 second timeout; cancellation
 - [ ] Unit tests with a fake provider
 
-### Phase 3: Cards and arrows (about 5 hours) — usable version
+### Phase 3: Cards and arrows (about 6.5 hours) — usable version
 - [ ] Webview with React Flow and dagre, left-to-right layout
 - [ ] Function card and class card with member rows; arrows leave from rows
-- [ ] Numbered arrows, kind accent stripe, theme variables, high-contrast check
+- [ ] "Native+" look (BRIEF section 10): kind palette, card depth, start glow, dot grid, minimap, path highlight, enter motion; contrast checked in dark, light and high-contrast themes
+- [ ] Numbered arrows
 - [ ] Click to jump, expand, collapse, zoom to fit
 - [ ] Called by (incoming calls)
 - [ ] Zod-validated messages, webview CSP
@@ -289,10 +289,10 @@ build time.** Everything after that adds depth and polish.
 - [ ] "N more not shown" card and large fan-out grouping
 - [ ] Measure the section 5 targets on a generated and a real project; fix what misses
 
-### Phase 5: Explanations (about 4.5 hours)
+### Phase 5: Explanations (about 3 hours)
 - [ ] Doc comments on cards
 - [ ] Provider interface, consent notice, cache by code hash, size cap
-- [ ] Providers: VS Code's Language Model API; the user's own key in SecretStorage
+- [ ] Provider: VS Code's Language Model API (check what Copilot Free allows)
 - [ ] Explain a function, explain a class, **explain a path** (start → selected card)
 - [ ] Offline fake model for tests; spot-check with a real model before reporting
 - [ ] Before starting: re-read the Language Model API docs for current limits
@@ -307,7 +307,8 @@ build time.** Everything after that adds depth and polish.
 - [ ] Security checklist, dependency audit, licence check, structured error logging
 - [ ] Test and coverage review
 - [ ] CI release workflow that builds the `.vsix` from a version tag
-- [ ] README: pitch, demo GIF, screenshots, features, limitations, settings, getting started, CI badge
+- [ ] Extension icon and Marketplace banner colour in the same palette
+- [ ] README: banner, pitch, demo GIF, screenshots, features, limitations, settings, getting started, CI badge
 - [ ] Marketplace publisher setup, click by click; first publish **only after your OK**
 - [ ] Interview prep: likely questions with short answers; CV bullets using only true numbers
 
@@ -341,7 +342,7 @@ estimates; Phase 1 will show how far off they are.
 | Call hierarchy results are poor in some language | Empty or wrong graph | Phase 1 check; clear unsupported message; document per language |
 | Language server still indexing | "No results" that is really "not ready" | Detect empty-while-starting, show the starting state with Retry |
 | Large codebase | Slow or unreadable graph | Lazy loading, limits, caching, grouping, measured targets |
-| Language Model API unavailable or over quota | No explanations | Second provider (own key); the core viewer works without it |
+| Language Model API unavailable or over quota | No explanations | Clear message; the core viewer works without it; an own-key provider can be added behind the same interface |
 | Existing tools already draw call graphs | Looks like a copy | Be honest in the README; lead with class cards, multi-relationship exploration and path explanation |
 | Marketplace publisher account setup takes time | Delays the release | Start the account in Phase 6, not Phase 7 |
 | Webview CSP or bundling problems | Blank panel | Solve in Phase 1/3, test in CI |
@@ -374,6 +375,8 @@ estimates; Phase 1 will show how far off they are.
 | 2026-10-07 | "Add to current graph" moved to Later. | A power option nobody has asked for; Back history covers going between starting points. | Saves about 30 min | Same standing OK |
 | 2026-10-07 | Title-bar icon removed. | CodeLens, right-click menu, shortcut and Command Palette already cover every way to start; a fifth button is clutter. | Saves about 10 min in Phase 6 | Same standing OK |
 | 2026-10-07 | Our own rate limit on Explain removed. | Explain runs only on a click, results are cached by code hash, and VS Code's Language Model API enforces its own quota with a clear error. A second limit protects nothing. | Saves about 20 min in Phase 5 | Same standing OK |
+| 2026-10-07 | Visual direction changed from plain "native card" to "Native+": theme surfaces plus our own modern kind palette, depth, glow, dot grid, minimap, path highlight and motion (BRIEF section 10). Extension icon and banner added to Phase 7. | You asked for a visually good, eye-catching look; a graph tool is judged by its screenshot. High Contrast keeps theme-only colours. | Adds about 1.5 h to Phase 3 and 20 min to Phase 7 | Owner, 2026-10-07 (left the styling to my judgement) |
+| 2026-10-07 | Own-API-key Explain provider moved to Later; the `prophasis.explain.provider` setting is removed until there is a second provider. | Most VS Code users can reach a model through VS Code's Language Model API; an own-key provider means picking a vendor, storing keys and tracking their API changes. The provider interface stays, so it can be added later. | Saves about 1.5 h in Phase 5 | Owner, 2026-10-07 (left it to my judgement) |
 
 ---
 
@@ -396,5 +399,5 @@ estimates; Phase 1 will show how far off they are.
   (lazy loading, limits, caching, grouping, timeouts, cancellation).
 - Why arrow numbers are textual order, not run-time order.
 - How Explain protects privacy: opt-in, only the selected code, a size cap,
-  consent, no key in settings.
+  consent, and no API keys to store.
 - How Prophasis differs from existing tools, said honestly.
