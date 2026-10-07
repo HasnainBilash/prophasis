@@ -334,8 +334,8 @@ build time.** Everything after that adds depth and polish.
 - [x] README: banner, pitch, demo animation, screenshots, features, limitations, settings,
   getting started, CI badge
 - [x] The packaged `.vsix` installed into a clean VS Code and used (check:vsix, also in CI)
-- [ ] Marketplace publisher setup: click-by-click steps given to the owner; needs the owner's
-  account. First publish **only after your OK**
+- [x] Marketplace publisher created by the owner (`hasnainbilash`); 0.1.0 packaged for upload
+- [ ] First publish: the owner uploads the .vsix at marketplace.visualstudio.com/manage
 - [x] Interview prep: likely questions with short answers; CV bullets using only true numbers
   (given in the chat, not committed)
 
@@ -415,6 +415,7 @@ estimates; Phase 1 will show how far off they are.
 | 2026-10-07 | Shortcut is Ctrl+Shift+Alt+F (Cmd+Shift+Alt+F on Mac); the right-click entry only shows where the language has call hierarchy (`editorHasCallHierarchyProvider`); "Copy Graph as Mermaid" is also a command. The Marketplace publisher account is left to the owner. | Three-modifier shortcuts rarely clash with VS Code defaults; a menu entry that can't work would confuse. Creating an account is outward-facing, so it needs the owner. | None | Standing OK for small corrections |
 | 2026-10-07 | The README demo is an animated PNG (APNG) built from real screenshots, not a GIF. | No screen recorder or ffmpeg here; APNG shows on GitHub and the Marketplace like a GIF, in full colour, and is built by a small script with no new dependency. | None | Standing OK for small corrections |
 | 2026-10-07 | Added an installed-package check (`check:vsix`) to CI. | Development-mode tests can't catch packaging mistakes such as a missing bundle. | About 20 min | Standing OK |
+| 2026-10-07 | Marketplace publishing is a manual .vsix upload on the Marketplace website (publisher `hasnainbilash`), not a token in CI. Version 0.1.0, CHANGELOG added. | New Azure DevOps organizations now require an Azure subscription (a card) to create the publishing token; the website upload needs no token and is free. Open VSX stays automatable. | Saves the token setup | Owner, 2026-10-07 |
 
 ---
 

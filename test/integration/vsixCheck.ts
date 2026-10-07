@@ -17,7 +17,7 @@ export async function run(): Promise<void> {
     throw new Error('PROBE_OUT and the fixtures workspace are needed');
   }
   const failures: string[] = [];
-  const extension = vscode.extensions.getExtension<ProphasisTestApi>('prophasis.prophasis');
+  const extension = vscode.extensions.getExtension<ProphasisTestApi>('hasnainbilash.prophasis');
   if (!extension) {
     throw new Error('the installed Prophasis extension was not found');
   }

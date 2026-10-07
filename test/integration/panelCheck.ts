@@ -25,7 +25,7 @@ export async function run(): Promise<void> {
   }
   mkdirSync(shots, { recursive: true });
   const fixtures = vscode.Uri.joinPath(folder.uri, '..');
-  const extension = vscode.extensions.getExtension<ProphasisTestApi>('prophasis.prophasis');
+  const extension = vscode.extensions.getExtension<ProphasisTestApi>('hasnainbilash.prophasis');
   const api = await extension?.activate();
   if (!api) {
     throw new Error('Prophasis did not activate');
@@ -216,7 +216,7 @@ export async function run(): Promise<void> {
   // 9. The Get Started walkthrough opens.
   await vscode.commands.executeCommand(
     'workbench.action.openWalkthrough',
-    'prophasis.prophasis#start',
+    'hasnainbilash.prophasis#start',
     false,
   );
   await capture('10-walkthrough');

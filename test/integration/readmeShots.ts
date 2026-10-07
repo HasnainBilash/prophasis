@@ -24,7 +24,7 @@ export async function run(): Promise<void> {
   mkdirSync(join(dir, 'frames'), { recursive: true });
   const fixtures = vscode.Uri.joinPath(folder.uri, '..');
   const api = await vscode.extensions
-    .getExtension<ProphasisTestApi>('prophasis.prophasis')
+    .getExtension<ProphasisTestApi>('hasnainbilash.prophasis')
     ?.activate();
   if (!api) {
     throw new Error('Prophasis did not activate');

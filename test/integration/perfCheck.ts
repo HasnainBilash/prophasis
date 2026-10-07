@@ -43,7 +43,7 @@ export async function run(): Promise<void> {
   const save = () => writeFileSync(out, JSON.stringify(report, null, 2));
   save();
 
-  const extension = vscode.extensions.getExtension<ProphasisTestApi>('prophasis.prophasis');
+  const extension = vscode.extensions.getExtension<ProphasisTestApi>('hasnainbilash.prophasis');
   const api = await extension?.activate();
   report.activationMs = api ? Math.round(api.activationMs * 10) / 10 : null;
 

@@ -2,8 +2,8 @@
   "name": "prophasis",
   "displayName": "Prophasis",
   "description": "See how your code connects: functions, methods and classes as cards with numbered arrows. Explore calls, callers, uses and types, and explain any path in plain language.",
-  "version": "0.0.1",
-  "publisher": "prophasis",
+  "version": "0.1.0",
+  "publisher": "hasnainbilash",
   "license": "MIT",
   "icon": "media/icon.png",
   "galleryBanner": {

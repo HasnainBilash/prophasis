@@ -1,8 +1,10 @@
 name: Publish
 
 # Manual only: Actions → Publish → Run workflow, then type the release tag.
-# Publishes that release's .vsix to the VS Code Marketplace and Open VSX.
-# Needs the repository secrets VSCE_PAT and OVSX_PAT; a store whose secret is
+# Publishes that release's .vsix to Open VSX (secret OVSX_PAT), and to the VS Code
+# Marketplace only if a VSCE_PAT secret exists. Without one (new Azure DevOps
+# organizations now need an Azure subscription), upload the .vsix by hand at
+# https://marketplace.visualstudio.com/manage instead. A store whose secret is
 # missing is skipped.
 on:
   workflow_dispatch:
