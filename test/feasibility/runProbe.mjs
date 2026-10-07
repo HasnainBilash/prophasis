@@ -12,6 +12,18 @@ import {
   runTests,
 } from '@vscode/test-electron';
 
+// The last lines printed (including VS Code's own output), quoted in CI
+// annotations when something fails.
+const recent = [];
+for (const stream of [process.stdout, process.stderr]) {
+  const write = stream.write.bind(stream);
+  stream.write = (chunk, ...rest) => {
+    recent.push(...String(chunk).split(/\r?\n/).filter(Boolean));
+    recent.splice(0, Math.max(0, recent.length - 40));
+    return write(chunk, ...rest);
+  };
+}
+
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const version = process.env.PROBE_VSCODE ?? 'stable';
 // Which bundle in dist/ to run: 'probe' (Phase 1 feasibility) or 'engineCheck'.
@@ -113,7 +125,9 @@ console.log(`Probe results written to ${out}`);
 function fail(message) {
   if (process.env.GITHUB_ACTIONS) {
     const encoded = message.replace(/%/g, '%25').replace(/\r?\n/g, '%0A');
+    const tail = recent.map((line) => line.replace(/%/g, '%25')).join('%0A');
     console.log(`::error title=${suite}::${encoded}`);
+    console.log(`::error title=${suite} output::${tail}`);
   }
   console.error(message);
   process.exit(1);
