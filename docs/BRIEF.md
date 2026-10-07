@@ -178,18 +178,20 @@ for an eye-catching look, see Changes in `docs/PLAN.md`.)
 
 **Kind palette** (left stripe, header tint, icon, arrow colour). Two shades:
 the dark-theme shade is lighter, the light-theme shade deeper, so both read
-well on their background. Contrast is checked in Phase 3.
+well on their background. Contrast is checked by a unit test
+(`test/unit/contrast.test.ts`): 4.5:1 for text and arrow numbers, 3:1 for lines,
+against VS Code's default dark and light editor backgrounds.
 
 | Kind | Dark themes | Light themes |
 |---|---|---|
-| Function | `#38BDF8` sky | `#0284C7` |
+| Function | `#38BDF8` sky | `#0369A1` |
 | Method | `#A78BFA` violet | `#7C3AED` |
-| Constructor | `#F472B6` pink | `#DB2777` |
-| Class | `#FBBF24` amber | `#D97706` |
-| Interface | `#34D399` emerald | `#059669` |
-| Struct / enum | `#FB923C` orange | `#EA580C` |
+| Constructor | `#F472B6` pink | `#BE185D` |
+| Class | `#FBBF24` amber | `#B45309` |
+| Interface | `#34D399` emerald | `#047857` |
+| Struct / enum | `#FB923C` orange | `#C2410C` |
 | Start card and focus | `#818CF8` indigo | `#4F46E5` |
-| Plain arrows | `#64748B` slate | `#94A3B8` |
+| Plain arrows | `#64748B` slate | `#64748B` |
 
 **Design rules**
 

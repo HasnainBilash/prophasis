@@ -114,15 +114,18 @@ checked with Zod when it arrives, in both directions.
 | `refresh` | `nodeId` | Rebuilds a stale card. |
 | `export` | `format` (`mermaid`) | Copies the Mermaid text. |
 | `back` / `forward` | none | Moves through earlier starting points. |
+| `dismissHint` | none | Remembers (in VS Code's per-user extension storage) that the first-open hint was closed. |
+| `retry` | none | Runs the last "Show flow" again (the Retry button on "language server starting" and errors). |
 
 ### Host → webview
 
 | Message | Payload |
 |---|---|
-| `graph:init` | a full `FlowGraph` |
+| `graph:init` | a full `FlowGraph`, the status, and `showHint` (show the one-time "how to explore" tip) |
 | `graph:patch` | nodes and edges to add (an edge with an existing id replaces it), nodes whose fields changed (`updateNodes`, e.g. `expanded` or `isRecursive`), ids to remove, new `hiddenCount` |
 | `explain:result` | `nodeId` or `pathNodeIds`, text, or an error code |
-| `status` | `loading`, `languageServerStarting`, `unsupported`, `empty`, or an error message |
+| `status` | `loading`, `languageServerStarting`, `unsupported`, `empty`, or an error message. Sent inside `graph:init` (field `status`), so the panel never shows a graph and a status that disagree. |
+| `expand:done` | `nodeId`, `relation`, and an error text if loading failed; stops the card's loading spinner |
 | `theme` | not needed: the webview reads VS Code's CSS variables directly |
 
 ### Expanding a card

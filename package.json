@@ -70,12 +70,15 @@
     "format:check": "prettier --check .",
     "probe": "npm run build && node test/feasibility/runProbe.mjs",
     "test": "vitest run --dir test/unit",
-    "check:engine": "npm run build && node test/feasibility/runProbe.mjs engineCheck"
+    "check:engine": "npm run build && node test/feasibility/runProbe.mjs engineCheck",
+    "check:panel": "npm run build && node test/feasibility/runProbe.mjs panelCheck"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@types/node": "^20.19.0",
     "@types/picomatch": "^4.0.3",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
     "@types/vscode": "1.90.0",
     "@vscode/test-electron": "^3.1.0",
     "esbuild": "^0.28.2",
@@ -87,6 +90,11 @@
     "vitest": "^4.1.11"
   },
   "dependencies": {
-    "picomatch": "^4.0.7"
+    "@dagrejs/dagre": "^3.1.1",
+    "@xyflow/react": "^12.12.0",
+    "picomatch": "^4.0.7",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "zod": "^4.6.5"
   }
 }

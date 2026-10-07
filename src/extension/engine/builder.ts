@@ -206,6 +206,83 @@ export class GraphBuilder {
     return patch;
   }
 
+  /**
+   * Hides what one expansion showed. Its arrows go, except those another
+   * expansion also accounts for (the other card's own Calls or Called by);
+   * then every card no longer connected to the start card goes too.
+   */
+  collapse(nodeId: string, relation: Relation): GraphPatch {
+    const patch: GraphPatch = {
+      addNodes: [],
+      addEdges: [],
+      updateNodes: [],
+      removeIds: [],
+      hiddenCount: this.hiddenCount,
+    };
+    const node = this.nodes.get(nodeId);
+    if (!node || !node.expanded.includes(relation)) {
+      return patch;
+    }
+    node.expanded = node.expanded.filter((r) => r !== relation);
+    patch.updateNodes.push(node);
+
+    for (const edge of [...this.edges.values()]) {
+      if (edge.kind !== 'calls' && edge.kind !== 'calledBy') {
+        continue;
+      }
+      const isOwn =
+        (relation === 'calls' && edge.fromId === nodeId && edge.kind === 'calls') ||
+        (relation === 'calledBy' && edge.toId === nodeId);
+      if (!isOwn) {
+        continue;
+      }
+      const otherId = relation === 'calls' ? edge.toId : edge.fromId;
+      const otherNeeds = relation === 'calls' ? 'calledBy' : 'calls';
+      if (this.nodes.get(otherId)?.expanded.includes(otherNeeds)) {
+        continue;
+      }
+      this.edges.delete(edge.id);
+      patch.removeIds.push(edge.id);
+    }
+
+    // Keep everything still connected to the start card; arrows count both ways,
+    // and a member stays as long as its class card does.
+    const keep = new Set<string>([this.rootId]);
+    const queue = [this.rootId];
+    for (let id = queue.shift(); id !== undefined; id = queue.shift()) {
+      const neighbours: string[] = [];
+      for (const edge of this.edges.values()) {
+        if (edge.fromId === id) neighbours.push(edge.toId);
+        if (edge.toId === id) neighbours.push(edge.fromId);
+      }
+      for (const other of this.nodes.values()) {
+        if (other.parentId === id || this.nodes.get(id)?.parentId === other.id) {
+          neighbours.push(other.id);
+        }
+      }
+      for (const next of neighbours) {
+        if (!keep.has(next) && this.nodes.has(next)) {
+          keep.add(next);
+          queue.push(next);
+        }
+      }
+    }
+    for (const id of [...this.nodes.keys()]) {
+      if (keep.has(id)) {
+        continue;
+      }
+      this.nodes.delete(id);
+      patch.removeIds.push(id);
+      for (const edge of [...this.edges.values()]) {
+        if (edge.fromId === id || edge.toId === id) {
+          this.edges.delete(edge.id);
+          patch.removeIds.push(edge.id);
+        }
+      }
+    }
+    return patch;
+  }
+
   snapshot(): FlowGraph {
     return {
       rootId: this.rootId,

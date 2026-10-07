@@ -4,16 +4,20 @@ See how your code connects. Click a function, method or class and Prophasis
 shows it as a card, with arrows to what it calls, who calls it, what a class
 contains and where it is used.
 
-> **Status: early development.** Phase 2 of 7 (the graph engine).
+> **Status: early development.** Phase 3 of 7 done: the first usable version.
 > Not yet published. The plan is in [docs/PLAN.md](docs/PLAN.md).
 
 ## What works today
 
 - A **Show flow** button (CodeLens) above every function, method and class.
 - **Prophasis: Show Flow** in the Command Palette, using the cursor position.
-- A panel that lists, for the starting point, what it calls (numbered in code
-  order, with line numbers) and what calls it; for a class, its members. This
-  text view is temporary: cards and arrows come in Phase 3.
+- A graph panel: the starting point as a card, with numbered arrows to what
+  it calls (in code order). Every card has **Calls** and **Called by**
+  buttons to explore further, and clicking a card opens its code. Class cards
+  list their members, and arrows leave from the exact member row.
+- Click a lit button again to hide what it showed. Hover a card to light up
+  its flow; a minimap and a "?" legend help you find your way.
+- Follows your VS Code theme: dark, light and high contrast.
 
 ## Settings
 
@@ -49,6 +53,7 @@ npm run lint       # ESLint
 npm run typecheck  # TypeScript, no output files
 npm test           # unit tests (Vitest)
 npm run check:engine  # graph engine on the sample projects, in a real VS Code
+npm run check:panel   # the real panel in VS Code, with screenshots (Windows)
 npm run probe      # Phase 1 feasibility probe, in a real VS Code
 ```
 

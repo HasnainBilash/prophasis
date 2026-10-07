@@ -3,7 +3,7 @@
 // Usage: npm run probe            (latest stable VS Code)
 //        PROBE_VSCODE=1.90.0 npm run probe   (a specific version)
 import { spawnSync } from 'node:child_process';
-import { mkdirSync } from 'node:fs';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
@@ -42,6 +42,29 @@ const outDir = resolve(root, '.vscode-test', 'results');
 mkdirSync(outDir, { recursive: true });
 const out = resolve(outDir, `${suite}-${version}.json`);
 
+// Settings for the throwaway test copy only (never the user's own VS Code):
+// a maximised window with no welcome page, tips or chat side bar, so
+// screenshots show just the editor and the panel.
+mkdirSync(resolve(userDataDir, 'User'), { recursive: true });
+writeFileSync(
+  resolve(userDataDir, 'User', 'settings.json'),
+  JSON.stringify(
+    {
+      'window.newWindowDimensions': 'maximized',
+      'workbench.startupEditor': 'none',
+      'workbench.tips.enabled': false,
+      'workbench.secondarySideBar.defaultVisibility': 'hidden',
+      'chat.disableAIFeatures': true,
+      'editor.minimap.enabled': false,
+      'git.openRepositoryInParentFolders': 'never',
+      'update.mode': 'none',
+      'telemetry.telemetryLevel': 'off',
+    },
+    null,
+    2,
+  ),
+);
+
 // When this runs from a terminal inside VS Code, ELECTRON_RUN_AS_NODE=1 is inherited
 // and would start the test copy of VS Code as plain Node instead of the editor.
 delete process.env.ELECTRON_RUN_AS_NODE;
@@ -50,7 +73,10 @@ await runTests({
   vscodeExecutablePath,
   extensionDevelopmentPath: root,
   extensionTestsPath: resolve(root, 'dist', `${suite}.js`),
-  extensionTestsEnv: { PROBE_OUT: out },
+  extensionTestsEnv: {
+    PROBE_OUT: out,
+    SCREENSHOT_DIR: resolve(root, '.vscode-test', 'screenshots'),
+  },
   launchArgs: [
     resolve(root, 'test', 'fixtures', 'fixtures.code-workspace'),
     `--extensions-dir=${extensionsDir}`,

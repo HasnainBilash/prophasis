@@ -1,183 +1,226 @@
 import { randomBytes } from 'node:crypto';
 import * as vscode from 'vscode';
-import type { FlowGraph, FlowNode, GraphStatus } from '../shared/types';
+import type { GraphBuilder } from './engine/builder';
+import { CancelledError, QueryTimeoutError } from './engine/queries';
+import { toHost, type ToHost, type ToPanel } from '../shared/messages';
+import type { GraphStatus } from '../shared/types';
 
-export interface PanelContent {
+/** Remembers (per user, across sessions) that the first-open hint was closed. */
+const HINT_SEEN = 'prophasis.hintSeen';
+
+/** What the panel currently shows: one starting point and the graph grown from it. */
+export interface Session {
   title: string;
   status: GraphStatus | 'error';
   /** Shown for status "error". */
   message?: string;
-  graph?: FlowGraph;
+  /** Absent when there is no graph (for example "language server starting"). */
+  builder?: GraphBuilder;
+  /** The editor column the user started from; click-to-jump opens files there. */
+  sourceColumn?: vscode.ViewColumn;
 }
 
 /** Owns the single Prophasis panel. A new start replaces what it shows. */
 export class PanelManager implements vscode.Disposable {
   private panel: vscode.WebviewPanel | undefined;
+  private session: Session | undefined;
+  // Expansions run one at a time, so two clicks can't change the graph at once.
+  private queue: Promise<void> = Promise.resolve();
+  private readyCount = 0;
   private readonly closed = new vscode.EventEmitter<void>();
+  private readonly retried = new vscode.EventEmitter<void>();
   /** Fires when the user closes the panel, so running requests can be cancelled. */
   readonly onDidClose = this.closed.event;
+  /** Fires when the user clicks Retry. */
+  readonly onDidRequestRetry = this.retried.event;
 
-  show(content: PanelContent): void {
+  constructor(
+    private readonly extensionUri: vscode.Uri,
+    private readonly memory: vscode.Memento,
+  ) {}
+
+  show(session: Session): void {
+    this.session = session;
+    this.queue = Promise.resolve();
     if (!this.panel) {
-      this.panel = vscode.window.createWebviewPanel(
-        'prophasis.graph',
-        'Prophasis',
-        { viewColumn: vscode.ViewColumn.Beside, preserveFocus: true },
-        // No scripts yet and no local files: the panel has nothing to load.
-        { enableScripts: false, localResourceRoots: [] },
-      );
-      this.panel.onDidDispose(() => {
-        this.panel = undefined;
-        this.closed.fire();
-      });
+      this.panel = this.createPanel();
     } else {
       this.panel.reveal(undefined, true);
+      this.sendInit();
     }
-    this.panel.title = `Prophasis: ${content.title}`;
-    this.panel.webview.html = renderHtml(content);
+    this.panel.title = `Prophasis: ${session.title}`;
   }
 
   dispose(): void {
     this.panel?.dispose();
     this.closed.dispose();
+    this.retried.dispose();
+  }
+
+  private createPanel(): vscode.WebviewPanel {
+    const dist = vscode.Uri.joinPath(this.extensionUri, 'dist');
+    const panel = vscode.window.createWebviewPanel(
+      'prophasis.graph',
+      'Prophasis',
+      { viewColumn: vscode.ViewColumn.Beside, preserveFocus: true },
+      // Only our own bundle can be loaded. The app asks for the graph again
+      // ("ready") whenever the panel is shown, so it needn't stay in memory.
+      { enableScripts: true, localResourceRoots: [dist] },
+    );
+    panel.webview.html = renderHtml(panel.webview, dist);
+    panel.webview.onDidReceiveMessage((raw: unknown) => this.receive(raw));
+    panel.onDidDispose(() => {
+      this.panel = undefined;
+      this.session = undefined;
+      this.closed.fire();
+    });
+    return panel;
+  }
+
+  /** True once the panel app has started and asked for the graph (it ran under the security policy). */
+  get appStarted(): boolean {
+    return this.readyCount > 0;
+  }
+
+  /** Handles a message as if it came from the panel. Also used by the integration tests. */
+  receive(raw: unknown): void {
+    const parsed = toHost.safeParse(raw);
+    if (!parsed.success) {
+      console.warn('Prophasis: ignored an unexpected message from the panel');
+      return;
+    }
+    const message: ToHost = parsed.data;
+    switch (message.type) {
+      case 'ready':
+        this.readyCount++;
+        this.sendInit();
+        break;
+      case 'retry':
+        this.retried.fire();
+        break;
+      case 'reveal':
+        void this.reveal(message.nodeId);
+        break;
+      case 'expand': {
+        const session = this.session;
+        this.queue = this.queue.then(() => this.expand(session, message.nodeId, message.relation));
+        break;
+      }
+      case 'collapse': {
+        const session = this.session;
+        this.queue = this.queue.then(() => {
+          if (session?.builder && session === this.session) {
+            this.post({
+              type: 'graph:patch',
+              patch: session.builder.collapse(message.nodeId, message.relation),
+            });
+          }
+        });
+        break;
+      }
+      case 'dismissHint':
+        void this.memory.update(HINT_SEEN, true);
+        break;
+    }
+  }
+
+  private sendInit(): void {
+    const session = this.session;
+    if (!session) {
+      return;
+    }
+    this.post({
+      type: 'graph:init',
+      status: session.status,
+      message: session.message,
+      graph: session.builder?.snapshot(),
+      showHint: session.builder !== undefined && !this.memory.get<boolean>(HINT_SEEN, false),
+    });
+  }
+
+  /** Resolves when every expansion asked for so far has finished. */
+  idle(): Promise<void> {
+    return this.queue;
+  }
+
+  /** The graph the panel currently shows. */
+  graph() {
+    return this.session?.builder?.snapshot();
+  }
+
+  private async expand(
+    session: Session | undefined,
+    nodeId: string,
+    relation: Extract<ToHost, { type: 'expand' }>['relation'],
+  ): Promise<void> {
+    // The session may have been replaced while this request waited its turn.
+    if (!session?.builder || session !== this.session) {
+      return;
+    }
+    try {
+      const patch = await session.builder.expand(nodeId, relation);
+      if (session === this.session) {
+        this.post({ type: 'graph:patch', patch });
+        this.post({ type: 'expand:done', nodeId, relation });
+      }
+    } catch (error) {
+      if (error instanceof CancelledError || session !== this.session) {
+        return;
+      }
+      const text =
+        error instanceof QueryTimeoutError
+          ? 'The language server took too long to answer. Try again in a moment.'
+          : `Could not load this: ${String(error)}`;
+      this.post({ type: 'expand:done', nodeId, relation, error: text });
+    }
+  }
+
+  /** Click-to-jump: opens the file and selects the symbol's name. */
+  private async reveal(nodeId: string): Promise<void> {
+    const location = this.session?.builder?.locationOf(nodeId);
+    if (!location) {
+      return;
+    }
+    const document = await vscode.workspace.openTextDocument(vscode.Uri.parse(location.uri, true));
+    const at = new vscode.Position(location.pos.line, location.pos.character);
+    const range = document.getWordRangeAtPosition(at) ?? new vscode.Range(at, at);
+    await vscode.window.showTextDocument(document, {
+      viewColumn: this.session?.sourceColumn ?? vscode.ViewColumn.One,
+      selection: range,
+    });
+  }
+
+  private post(message: ToPanel): void {
+    void this.panel?.webview.postMessage(message);
   }
 }
 
-const statusText: Record<Exclude<GraphStatus, 'ok'>, string> = {
-  empty:
-    'No calls found for this function. It may only use library code (hidden by default), or call things the language server can’t see, such as callbacks or dynamic calls.',
-  languageServerStarting:
-    'The language server is still starting. Click “Show flow” again in a few seconds.',
-  unsupported:
-    'This language’s extension doesn’t provide call information. Try TypeScript, JavaScript or Python.',
-  noSymbol: 'No function, method or class found here.',
-};
-
-// A temporary text view of the graph engine's output (Phase 2), so results can
-// be checked by hand. Phase 3 replaces it with cards and arrows.
-function renderHtml(content: PanelContent): string {
+function renderHtml(webview: vscode.Webview, dist: vscode.Uri): string {
   const nonce = randomBytes(16).toString('base64');
-  const graph = content.graph;
-  const root = graph?.nodes.find((n) => n.id === graph.rootId);
-  const parts: string[] = [];
-
-  if (content.status === 'error') {
-    parts.push(`<p class="notice">${esc(content.message ?? 'Something went wrong.')}</p>`);
-  } else if (content.status !== 'ok') {
-    parts.push(`<p class="notice">${esc(statusText[content.status])}</p>`);
-  }
-
-  if (graph && root) {
-    const byId = new Map(graph.nodes.map((n) => [n.id, n]));
-    parts.push(card(root, 'start'));
-
-    if (root.members) {
-      const rows = root.members
-        .map(
-          (m) =>
-            `<li><span class="k">${esc(m.kind)}</span> ${esc(m.name)} <span class="muted">line ${m.line}</span></li>`,
-        )
-        .join('');
-      const more = root.hiddenMembers
-        ? `<li class="muted">+ ${root.hiddenMembers} more members</li>`
-        : '';
-      parts.push(`<h2>Contains</h2><ul>${rows}${more}</ul>`);
-    }
-
-    const calls = graph.edges
-      .filter((e) => e.fromId === root.id && e.kind === 'calls')
-      .sort((a, b) => a.order - b.order);
-    if (!root.members) {
-      parts.push(
-        '<h2>Calls <span class="muted">(numbered in the order they appear in the code)</span></h2>',
-      );
-      parts.push(
-        calls.length
-          ? `<ol>${calls.map((e) => `<li>${link(byId.get(e.toId))} <span class="muted">called on line ${e.callLines.join(', ')}</span></li>`).join('')}</ol>`
-          : '<p class="muted">None found.</p>',
-      );
-    }
-
-    const callers = graph.edges.filter(
-      (e) => e.toId === root.id && (e.kind === 'calls' || e.kind === 'calledBy'),
-    );
-    parts.push('<h2>Called by</h2>');
-    parts.push(
-      callers.length
-        ? `<ul>${callers.map((e) => `<li>${link(byId.get(e.fromId))} <span class="muted">calls it on line ${e.callLines.join(', ')}</span></li>`).join('')}</ul>`
-        : '<p class="muted">No callers found.</p>',
-    );
-
-    const notes: string[] = [];
-    if (root.isRecursive) {
-      notes.push('This function calls itself, directly or through other functions (recursion).');
-    }
-    if (graph.hiddenCount > 0) {
-      notes.push(`${graph.hiddenCount} more not shown (card limit).`);
-    }
-    if (notes.length) {
-      parts.push(`<p class="muted">${notes.map(esc).join(' ')}</p>`);
-    }
-  }
-
-  parts.push(
-    '<p class="note">Text preview of the graph engine. Cards and arrows arrive in the next phase.</p>',
-  );
-
+  const script = webview.asWebviewUri(vscode.Uri.joinPath(dist, 'webview.js'));
+  const style = webview.asWebviewUri(vscode.Uri.joinPath(dist, 'webview.css'));
+  // Only our bundle runs: no inline scripts, no remote resources. Styles come
+  // from our stylesheet; React sets element styles through the DOM, which the
+  // policy allows.
+  const csp = [
+    "default-src 'none'",
+    `script-src 'nonce-${nonce}'`,
+    `style-src ${webview.cspSource}`,
+    `img-src ${webview.cspSource} data:`,
+    `font-src ${webview.cspSource}`,
+  ].join('; ');
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'nonce-${nonce}';">
+<meta http-equiv="Content-Security-Policy" content="${csp}">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<style nonce="${nonce}">
-  body { margin: 0; padding: 16px; color: var(--vscode-foreground); background: var(--vscode-editor-background);
-         font: 13px/1.5 var(--vscode-font-family); }
-  .card { display: inline-block; min-width: 240px; padding: 8px 12px 8px 14px; border-radius: 8px;
-          border: 1px solid var(--vscode-panel-border, var(--vscode-contrastBorder, transparent));
-          border-left: 3px solid var(--vscode-focusBorder); background: var(--vscode-sideBar-background); }
-  .kind, .k { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--vscode-descriptionForeground); }
-  .name { font-family: var(--vscode-editor-font-family); font-weight: 600; }
-  .sig { font-family: var(--vscode-editor-font-family); font-size: 12px; color: var(--vscode-descriptionForeground); }
-  h2 { font-size: 13px; margin: 20px 0 6px; }
-  ol, ul { margin: 0; padding-left: 22px; }
-  li { margin: 3px 0; }
-  .muted, .path, .note { color: var(--vscode-descriptionForeground); font-size: 12px; }
-  .note { margin-top: 24px; }
-  .notice { padding: 8px 12px; border-radius: 6px; background: var(--vscode-inputValidation-infoBackground, transparent);
-            border: 1px solid var(--vscode-inputValidation-infoBorder, var(--vscode-focusBorder)); }
-  code { font-family: var(--vscode-editor-font-family); }
-</style>
+<link rel="stylesheet" href="${style.toString()}">
+<title>Prophasis</title>
 </head>
 <body>
-${parts.join('\n')}
+<div id="root"></div>
+<script nonce="${nonce}" src="${script.toString()}"></script>
 </body>
 </html>`;
-}
-
-function card(node: FlowNode, label: string): string {
-  return `<div class="card">
-    <div class="kind">${esc(label)} · ${esc(node.kind)}</div>
-    <div class="name">${esc(node.name)}</div>
-    <div class="path">${esc(node.filePath)} · line ${node.line}</div>
-    <div class="sig">${esc(node.signature)}</div>
-  </div>`;
-}
-
-function link(node: FlowNode | undefined): string {
-  if (!node) {
-    return '<span class="muted">(unknown)</span>';
-  }
-  const marks = node.isRecursive ? ' ↻' : '';
-  return `<code>${esc(node.name)}</code>${marks} <span class="muted">${esc(node.kind)} · ${esc(node.filePath)}:${node.line}</span>`;
-}
-
-// Names come from the user's code, so they are always escaped, never trusted as HTML.
-function esc(text: string): string {
-  return text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
 }

@@ -7,8 +7,14 @@ import { PanelManager } from './panel';
 import { forgetDocument } from './symbols';
 
 // Activation only registers things. Nothing scans the workspace.
-export function activate(context: vscode.ExtensionContext): void {
-  const panels = new PanelManager();
+/** Returned from activate() so integration tests can drive the panel without clicking. */
+export interface ProphasisTestApi {
+  panels: PanelManager;
+}
+
+export function activate(context: vscode.ExtensionContext): ProphasisTestApi {
+  const panels = new PanelManager(context.extensionUri, context.globalState);
+  let lastArgs: unknown[] = [];
   const codeLenses = new FlowCodeLensProvider();
   let current: vscode.CancellationTokenSource | undefined;
   const cancelCurrent = () => {
@@ -28,10 +34,14 @@ export function activate(context: vscode.ExtensionContext): void {
       // A new start replaces the graph, so anything still loading is cancelled.
       cancelCurrent();
       current = new vscode.CancellationTokenSource();
-      await showFlow(panels, current.token, args);
+      // From the command palette, remember the cursor so Retry asks about the same place.
+      lastArgs = args.length > 0 ? args : cursorArgs();
+      await showFlow(panels, current.token, lastArgs);
     }),
+    panels.onDidRequestRetry(() => vscode.commands.executeCommand(SHOW_FLOW, ...lastArgs)),
     vscode.workspace.onDidCloseTextDocument((document) => forgetDocument(document.uri)),
   );
+  return { panels };
 }
 
 export function deactivate(): void {}
@@ -70,13 +80,10 @@ async function showFlow(
       { location: vscode.ProgressLocation.Window, title: 'Prophasis: finding calls' },
       async () => {
         const started = await builder.start(target.uri.toString(), target.position);
-        const graph = started.graph;
-        if (graph && started.status !== 'languageServerStarting') {
-          await loadDeeper(builder, graph.rootId, depth);
-          // The text preview also lists callers; Phase 3 loads them on click.
-          await builder.expand(graph.rootId, 'calledBy');
+        if (started.graph && started.status !== 'languageServerStarting') {
+          await loadDeeper(builder, started.graph.rootId, depth);
         }
-        return { status: started.status, graph: graph && builder.snapshot() };
+        return { status: started.status, graph: started.graph && builder.snapshot() };
       },
     );
     if (token.isCancellationRequested) {
@@ -89,7 +96,12 @@ async function showFlow(
       return;
     }
     const root = result.graph?.nodes.find((n) => n.id === result.graph?.rootId);
-    panels.show({ title: root?.name ?? 'Show flow', status: result.status, graph: result.graph });
+    panels.show({
+      title: root?.name ?? 'Show flow',
+      status: result.status,
+      builder: result.graph ? builder : undefined,
+      sourceColumn: target.column,
+    });
   } catch (error) {
     if (error instanceof CancelledError) {
       return;
@@ -98,7 +110,7 @@ async function showFlow(
       error instanceof QueryTimeoutError
         ? 'The language server took too long to answer. It may still be indexing the project; try again in a moment.'
         : `Something went wrong: ${String(error)}`;
-    panels.show({ title: 'Show flow', status: 'error', message });
+    panels.show({ title: 'Show flow', status: 'error', message, sourceColumn: target.column });
   }
 }
 
@@ -119,15 +131,31 @@ async function loadDeeper(builder: GraphBuilder, rootId: string, depth: number):
   }
 }
 
-function readTarget(args: unknown[]): { uri: vscode.Uri; position: vscode.Position } | undefined {
+interface Target {
+  uri: vscode.Uri;
+  position: vscode.Position;
+  /** The editor column the click came from. */
+  column?: vscode.ViewColumn;
+}
+
+function readTarget(args: unknown[]): Target | undefined {
   const [first, second, third] = args;
-  if (typeof first === 'string') {
-    const uri = vscode.Uri.parse(first, true);
-    if (typeof second === 'number' && typeof third === 'number') {
-      return { uri, position: new vscode.Position(second, third) };
-    }
+  if (typeof first !== 'string' || typeof second !== 'number' || typeof third !== 'number') {
     return undefined;
   }
+  const uri = vscode.Uri.parse(first, true);
+  const column = vscode.window.visibleTextEditors.find(
+    (e) => e.document.uri.toString() === uri.toString(),
+  )?.viewColumn;
+  return { uri, position: new vscode.Position(second, third), column };
+}
+
+/** The cursor position, in the same (uri, line, character) form the CodeLens uses. */
+function cursorArgs(): unknown[] {
   const editor = vscode.window.activeTextEditor;
-  return editor ? { uri: editor.document.uri, position: editor.selection.active } : undefined;
+  if (!editor) {
+    return [];
+  }
+  const at = editor.selection.active;
+  return [editor.document.uri.toString(), at.line, at.character];
 }

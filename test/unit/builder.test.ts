@@ -278,3 +278,40 @@ describe('cache', () => {
     expect(second.queries.calls.outgoing).toBe(1);
   });
 });
+
+describe('collapse', () => {
+  it('removes what Calls showed, and cards no longer connected', async () => {
+    const { builder } = setup();
+    await builder.start(A, pos(1, 3)); // buy → check, pay, helper
+    await builder.expand(id.pay, 'calls'); // pay → log
+    const patch = builder.collapse(id.buy, 'calls');
+
+    const left = builder.snapshot();
+    expect(left.nodes.map((n) => n.id)).toEqual([id.buy]);
+    expect(left.edges).toEqual([]);
+    expect(patch.removeIds).toEqual(expect.arrayContaining([id.check, id.pay, id.helper, id.log]));
+    expect(patch.updateNodes[0]?.expanded).toEqual([]);
+  });
+
+  it("keeps an arrow that the other card's own expansion also shows", async () => {
+    const { builder } = setup();
+    await builder.start(A, pos(8, 10)); // pay → log
+    await builder.expand(id.pay, 'calledBy'); // buy → pay
+    await builder.expand(id.buy, 'calls'); // buy → check, pay, helper
+    builder.collapse(id.pay, 'calledBy');
+
+    // buy → pay stays: it is one of buy's own calls, which are still shown.
+    const edges = builder.snapshot().edges.map((e) => `${e.fromId}->${e.toId}`);
+    expect(edges).toContain(`${id.buy}->${id.pay}`);
+    expect(builder.snapshot().nodes.map((n) => n.id)).toContain(id.check);
+  });
+
+  it('never removes the start card, and can expand again afterwards', async () => {
+    const { builder } = setup();
+    await builder.start(A, pos(1, 3));
+    builder.collapse(id.buy, 'calls');
+    const again = await builder.expand(id.buy, 'calls');
+    expect(again.addNodes.map((n) => n.id)).toEqual([id.check, id.pay, id.helper]);
+    expect(builder.snapshot().edges.map((e) => e.order)).toEqual([1, 2, 3]);
+  });
+});

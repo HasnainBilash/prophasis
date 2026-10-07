@@ -264,24 +264,24 @@ build time.** Everything after that adds depth and polish.
 - [x] GitHub Actions CI (lint, type check, build) and README skeleton
 
 ### Phase 2: The graph engine (about 4–5 hours)
-- [ ] Symbol at the click position (function, method, class)
-- [ ] Document symbols: class → members
-- [ ] Outgoing calls across files, with call positions
-- [ ] Order numbering, cycle detection, library filtering, card limit, `hiddenCount`
-- [ ] Cache with file-version keys; 5 second timeout; cancellation
-- [ ] Unit tests with a fake provider
+- [x] Symbol at the click position (function, method, class)
+- [x] Document symbols: class → members
+- [x] Outgoing calls across files, with call positions
+- [x] Order numbering, cycle detection, library filtering, card limit, `hiddenCount`
+- [x] Cache with file-version keys; 5 second timeout; cancellation
+- [x] Unit tests with a fake provider
 
 ### Phase 3: Cards and arrows (about 6.5 hours) — usable version
-- [ ] Webview with React Flow and dagre, left-to-right layout
-- [ ] Function card and class card with member rows; arrows leave from rows
-- [ ] "Native+" look (BRIEF section 10): kind palette, card depth, start glow, dot grid, minimap, path highlight, enter motion; contrast checked in dark, light and high-contrast themes
-- [ ] Numbered arrows
-- [ ] Easy to understand: plain labels and tooltips on every control, a small legend (colours, numbered arrows), and a one-time hint on first open ("Click Calls or Called by on any card to explore")
-- [ ] Click to jump, expand, collapse, zoom to fit
-- [ ] Called by (incoming calls)
-- [ ] Zod-validated messages, webview CSP
-- [ ] Empty, unsupported-language and "language server starting" states
-- [ ] Integration tests on the fixtures
+- [x] Webview with React Flow and dagre, left-to-right layout
+- [x] Function card and class card with member rows; arrows leave from rows
+- [x] "Native+" look (BRIEF section 10): kind palette, card depth, start glow, dot grid, minimap, path highlight, enter motion; contrast checked in dark, light and high-contrast themes
+- [x] Numbered arrows
+- [x] Easy to understand: plain labels and tooltips on every control, a small legend (colours, numbered arrows), and a one-time hint on first open ("Click Calls or Called by on any card to explore")
+- [x] Click to jump, expand, collapse, zoom to fit
+- [x] Called by (incoming calls)
+- [x] Zod-validated messages, webview CSP
+- [x] Empty, unsupported-language and "language server starting" states
+- [x] Integration tests on the fixtures
 
 ### Phase 4: More relationships and scale (about 4 hours)
 - [ ] Used by (references mapped to the enclosing symbol)
@@ -381,6 +381,8 @@ estimates; Phase 1 will show how far off they are.
 | 2026-10-07 | Own-API-key Explain provider moved to Later; the `prophasis.explain.provider` setting is removed until there is a second provider. | Most VS Code users can reach a model through VS Code's Language Model API; an own-key provider means picking a vendor, storing keys and tracking their API changes. The provider interface stays, so it can be added later. | Saves about 1.5 h in Phase 5 | Owner, 2026-10-07 (left it to my judgement) |
 | 2026-10-07 | Added the goal "intuitive, value clear within a minute": legend, tooltips and a first-open hint in Phase 3; a Get Started walkthrough in Phase 6. | Owner request. A tool people don't understand in the first minute gets uninstalled. | Adds about 30 min in Phase 3 and 30 min in Phase 6 | Owner, 2026-10-07 |
 | 2026-10-07 | Data model clarifications found while building the engine: member rows can be `field`; `hiddenMembers` on class cards; `graph:patch` gains `updateNodes`; `calledBy` edges defined (caller → callee, order 0, upgraded to `calls` later). | The frozen model had gaps: rows listed fields but `NodeKind` had no field, and a patch had no way to change an existing card. | None (part of Phase 2) | Within the standing OK for small corrections; flagged in the Phase 2 report |
+| 2026-10-07 | Messages: `retry` (panel → host) and `expand:done` (host → panel) added; the status travels inside `graph:init`. | Needed for the Retry button and for per-card loading spinners and errors. | None (part of Phase 3) | Small correction; flagged in the Phase 3 Part A report |
+| 2026-10-07 | `dismissHint` message and `showHint` flag for the first-open tip; light-theme kind colours one shade deeper (BRIEF section 10). | The tip must show once per user, not per panel. The first light palette failed the WCAG contrast check (white badge numbers on sky, amber, emerald and orange). | None (part of Phase 3) | Standing OK for styling and small corrections |
 
 ---
 

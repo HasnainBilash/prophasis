@@ -1,0 +1,721 @@
+/* Prophasis "Native+" look (docs/BRIEF.md section 10).
+   Surfaces, text and fonts come from the VS Code theme; the kind palette,
+   depth and glow are ours. High Contrast themes use theme colours only. */
+
+:root {
+  --k-function: #38bdf8;
+  --k-method: #a78bfa;
+  --k-constructor: #f472b6;
+  --k-class: #fbbf24;
+  --k-interface: #34d399;
+  --k-struct: #fb923c;
+  --k-enum: #fb923c;
+  --k-field: #94a3b8;
+  --k-start: #818cf8;
+  --edge-plain: #64748b;
+  --card-bg-mix: 7%;
+  --shadow: 0 1px 2px rgb(0 0 0 / 0.35), 0 8px 24px rgb(0 0 0 / 0.28);
+  --glow:
+    0 0 0 1px var(--k-start), 0 0 18px 2px color-mix(in srgb, var(--k-start) 45%, transparent);
+  --badge-text: #0b1020;
+  --surface: var(--vscode-editor-background, #1e1e1e);
+  --text: var(--vscode-foreground, #cccccc);
+  --muted: var(--vscode-descriptionForeground, #9d9d9d);
+  --line: var(--vscode-widget-border, rgb(255 255 255 / 0.1));
+  --code-font: var(--vscode-editor-font-family, Consolas, monospace);
+}
+
+body.vscode-light {
+  --k-function: #0369a1;
+  --k-method: #7c3aed;
+  --k-constructor: #be185d;
+  --k-class: #b45309;
+  --k-interface: #047857;
+  --k-struct: #c2410c;
+  --k-enum: #c2410c;
+  --k-field: #64748b;
+  --k-start: #4f46e5;
+  --edge-plain: #64748b;
+  --card-bg-mix: 5%;
+  --shadow: 0 1px 2px rgb(15 23 42 / 0.08), 0 8px 24px rgb(15 23 42 / 0.1);
+  --badge-text: #ffffff;
+  --line: var(--vscode-widget-border, rgb(0 0 0 / 0.12));
+}
+
+/* High contrast: no colour coding, no shadows; borders and text from the theme. */
+body.vscode-high-contrast,
+body.vscode-high-contrast-light {
+  --k-function: var(--vscode-foreground);
+  --k-method: var(--vscode-foreground);
+  --k-constructor: var(--vscode-foreground);
+  --k-class: var(--vscode-foreground);
+  --k-interface: var(--vscode-foreground);
+  --k-struct: var(--vscode-foreground);
+  --k-enum: var(--vscode-foreground);
+  --k-field: var(--vscode-foreground);
+  --k-start: var(--vscode-focusBorder);
+  --edge-plain: var(--vscode-foreground);
+  --card-bg-mix: 0%;
+  --shadow: none;
+  --glow: 0 0 0 2px var(--vscode-focusBorder);
+  --badge-text: var(--vscode-editor-background);
+  --line: var(--vscode-contrastBorder);
+}
+
+html,
+body,
+#root,
+.app {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--surface);
+  color: var(--text);
+  font-family: var(--vscode-font-family, system-ui, sans-serif);
+  font-size: 13px;
+  overflow: hidden;
+}
+
+/* ---- canvas ---------------------------------------------------------- */
+
+.react-flow {
+  background: var(--surface);
+}
+
+.dots {
+  --xy-background-pattern-color: color-mix(in srgb, var(--text) 16%, transparent);
+}
+
+.react-flow__attribution {
+  background: transparent;
+  opacity: 0.5;
+}
+
+.react-flow__attribution a {
+  color: var(--muted);
+}
+
+.react-flow__controls {
+  box-shadow: var(--shadow);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.react-flow__controls-button {
+  background: var(--vscode-editorWidget-background, var(--surface));
+  border-bottom: 1px solid var(--line);
+  color: var(--text);
+  fill: var(--text);
+  width: 28px;
+  height: 28px;
+}
+
+.react-flow__controls-button:hover {
+  background: var(--vscode-toolbar-hoverBackground, var(--surface));
+}
+
+.react-flow__controls-button svg {
+  fill: currentColor;
+}
+
+/* ---- cards ----------------------------------------------------------- */
+
+.card {
+  --accent: var(--k-function);
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--accent) var(--card-bg-mix), var(--surface));
+  box-shadow: var(--shadow);
+  position: relative;
+  overflow: hidden;
+  cursor: pointer;
+  transition:
+    border-color 150ms ease,
+    box-shadow 150ms ease;
+}
+
+.card::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  background: var(--accent);
+}
+
+.card:hover {
+  border-color: color-mix(in srgb, var(--accent) 60%, var(--line));
+}
+
+.card:focus-visible {
+  outline: 2px solid var(--vscode-focusBorder);
+  outline-offset: 2px;
+}
+
+.card.root {
+  border-color: var(--k-start);
+  box-shadow: var(--glow), var(--shadow);
+}
+
+.kind-function {
+  --accent: var(--k-function);
+}
+.kind-method {
+  --accent: var(--k-method);
+}
+.kind-constructor {
+  --accent: var(--k-constructor);
+}
+.kind-class {
+  --accent: var(--k-class);
+}
+.kind-interface {
+  --accent: var(--k-interface);
+}
+.kind-struct {
+  --accent: var(--k-struct);
+}
+.kind-enum {
+  --accent: var(--k-enum);
+}
+.kind-field {
+  --accent: var(--k-field);
+}
+
+.card-head {
+  padding: 10px 12px 8px 14px;
+  min-width: 0;
+}
+
+.card-kind {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 20px;
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.glyph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
+  color: var(--accent);
+  font: 600 12px/1 var(--code-font);
+  text-transform: none;
+  flex: none;
+}
+
+.glyph.small {
+  width: 16px;
+  height: 16px;
+  font-size: 10px;
+}
+
+.tag {
+  margin-left: auto;
+  padding: 0 6px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  font-size: 10px;
+  letter-spacing: 0.02em;
+  text-transform: none;
+}
+
+.tag + .tag {
+  margin-left: 4px;
+}
+
+.card-name {
+  margin-top: 6px;
+  font: 600 13.5px/18px var(--code-font);
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.card-path,
+.card-sig {
+  font-size: 11px;
+  line-height: 16px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.card-sig {
+  font-family: var(--code-font);
+  margin-top: 2px;
+}
+
+/* ---- class rows ------------------------------------------------------ */
+
+.rows {
+  border-top: 1px solid var(--line);
+  flex: 1;
+  overflow: hidden;
+}
+
+.row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 26px;
+  box-sizing: border-box;
+  padding: 0 8px 0 14px;
+  font: 12px/26px var(--code-font);
+}
+
+.row:hover,
+.row.active {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.row-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.row-line {
+  font-family: var(--vscode-font-family, sans-serif);
+  font-size: 10.5px;
+  color: var(--muted);
+}
+
+.row.more {
+  color: var(--muted);
+  font-family: var(--vscode-font-family, sans-serif);
+  font-size: 11px;
+  cursor: default;
+}
+
+.row-btns {
+  display: none;
+  gap: 2px;
+}
+
+.row:hover .row-btns,
+.row:focus-within .row-btns,
+.row.active .row-btns {
+  display: inline-flex;
+}
+
+.row-btn {
+  width: 22px;
+  height: 18px;
+  padding: 0;
+  border-radius: 4px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.row-btn:hover {
+  border-color: var(--accent);
+}
+
+.row-btn.done {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--badge-text);
+}
+
+/* ---- buttons --------------------------------------------------------- */
+
+.card-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: auto;
+  padding: 6px 12px 10px 14px;
+}
+
+.class-card .card-actions {
+  border-top: 1px solid var(--line);
+  padding-top: 8px;
+}
+
+.chip {
+  white-space: nowrap;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 22px;
+  padding: 0 10px;
+  border-radius: 11px;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--text);
+  font: 11.5px var(--vscode-font-family, sans-serif);
+  cursor: pointer;
+}
+
+.chip:hover:not(:disabled) {
+  border-color: var(--accent, var(--k-start));
+  background: color-mix(in srgb, var(--accent, var(--k-start)) 12%, transparent);
+}
+
+.chip:focus-visible,
+.row-btn:focus-visible {
+  outline: 2px solid var(--vscode-focusBorder);
+  outline-offset: 1px;
+}
+
+.chip.done {
+  background: color-mix(in srgb, var(--accent) 85%, transparent);
+  border-color: var(--accent);
+  color: var(--badge-text);
+  cursor: default;
+}
+
+.chip:disabled {
+  cursor: progress;
+  opacity: 0.8;
+}
+
+.spinner {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  border: 1.5px solid currentColor;
+  border-right-color: transparent;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ---- arrows ---------------------------------------------------------- */
+
+.handle {
+  opacity: 0;
+  pointer-events: none;
+  width: 1px;
+  height: 1px;
+  min-width: 0;
+  min-height: 0;
+  border: 0;
+}
+
+.call-edge path.react-flow__edge-path {
+  stroke: var(--edge-colour, var(--edge-plain));
+  stroke-width: 1.5;
+}
+
+.react-flow__edge:hover .call-edge path.react-flow__edge-path {
+  stroke-width: 2.5;
+}
+
+.from-function {
+  --edge-colour: var(--k-function);
+}
+.from-method {
+  --edge-colour: var(--k-method);
+}
+.from-constructor {
+  --edge-colour: var(--k-constructor);
+}
+.from-class {
+  --edge-colour: var(--k-class);
+}
+.from-interface {
+  --edge-colour: var(--k-interface);
+}
+.from-struct {
+  --edge-colour: var(--k-struct);
+}
+.from-enum {
+  --edge-colour: var(--k-enum);
+}
+
+.badge {
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--edge-colour, var(--edge-plain));
+  color: var(--badge-text);
+  font: 700 11px/1 var(--vscode-font-family, sans-serif);
+  box-shadow: 0 0 0 3px var(--surface);
+  pointer-events: all;
+  cursor: default;
+}
+
+/* ---- overlays -------------------------------------------------------- */
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  backdrop-filter: blur(6px);
+  box-shadow: var(--shadow);
+}
+
+.brand {
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  background: linear-gradient(90deg, var(--k-start), var(--k-function));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+body.vscode-high-contrast .brand,
+body.vscode-high-contrast-light .brand {
+  background: none;
+  color: var(--vscode-foreground);
+}
+
+.start-name {
+  font-family: var(--code-font);
+  color: var(--muted);
+}
+
+.banner,
+.toast,
+.pill {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: 520px;
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--vscode-editorWidget-background, var(--surface));
+  color: var(--text);
+  box-shadow: var(--shadow);
+  line-height: 1.45;
+}
+
+.banner {
+  border-left: 3px solid var(--k-start);
+}
+
+.banner.unsupported,
+.banner.error,
+.toast {
+  border-left: 3px solid var(--vscode-editorWarning-foreground, #cca700);
+}
+
+.pill {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.toast button {
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--text);
+  border-radius: 4px;
+  padding: 2px 8px;
+  cursor: pointer;
+}
+
+/* ---- hover path, motion ---------------------------------------------- */
+
+.card {
+  animation: card-enter 180ms ease-out;
+}
+
+.card.dimmed {
+  opacity: 0.32;
+}
+
+.react-flow__node {
+  transition: opacity 150ms ease;
+}
+
+.react-flow__edge {
+  animation: edge-enter 260ms ease-out;
+  transition: opacity 150ms ease;
+}
+
+.react-flow__edge.dimmed {
+  opacity: 0.12;
+}
+
+.react-flow__edge.lit .call-edge path.react-flow__edge-path {
+  stroke-width: 2.4;
+}
+
+@keyframes card-enter {
+  from {
+    opacity: 0;
+    transform: translateX(-10px);
+  }
+}
+
+@keyframes edge-enter {
+  from {
+    opacity: 0;
+  }
+}
+
+/* ---- minimap --------------------------------------------------------- */
+
+.minimap {
+  --xy-minimap-background-color: var(--vscode-editorWidget-background, var(--surface));
+  --xy-minimap-mask-background-color: color-mix(in srgb, var(--surface) 55%, transparent);
+  --xy-minimap-mask-stroke-color: var(--k-start);
+  --xy-minimap-mask-stroke-width: 2;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: var(--shadow);
+}
+
+.minimap .react-flow__minimap-node {
+  fill: var(--k-function);
+  stroke: none;
+}
+
+.minimap .mini-method {
+  fill: var(--k-method);
+}
+.minimap .mini-constructor {
+  fill: var(--k-constructor);
+}
+.minimap .mini-class {
+  fill: var(--k-class);
+}
+.minimap .mini-interface {
+  fill: var(--k-interface);
+}
+.minimap .mini-struct,
+.minimap .mini-enum {
+  fill: var(--k-struct);
+}
+
+/* ---- legend and hint ------------------------------------------------- */
+
+.icon-btn {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--text);
+  font: 600 12px/1 var(--vscode-font-family, sans-serif);
+  cursor: pointer;
+}
+
+.icon-btn:hover {
+  border-color: var(--k-start);
+}
+
+.icon-btn:focus-visible {
+  outline: 2px solid var(--vscode-focusBorder);
+  outline-offset: 1px;
+}
+
+.legend-wrap {
+  margin-top: 52px;
+}
+
+.legend {
+  width: 300px;
+  padding: 12px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--vscode-editorWidget-background, var(--surface));
+  box-shadow: var(--shadow);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.legend-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.legend ul {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 12px;
+  margin: 0 0 8px;
+  padding: 0;
+  list-style: none;
+}
+
+.legend li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.legend p {
+  margin: 6px 0 0;
+  color: var(--muted);
+}
+
+.legend b,
+.legend code {
+  color: var(--text);
+}
+
+.badge.inline {
+  position: static;
+  display: inline-flex;
+  vertical-align: middle;
+  margin-right: 4px;
+  box-shadow: none;
+}
+
+.hint {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: min(420px, calc(100vw - 340px));
+  min-width: 220px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--k-start);
+  background: var(--vscode-editorWidget-background, var(--surface));
+  box-shadow: var(--glow), var(--shadow);
+  line-height: 1.45;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card,
+  .spinner,
+  .react-flow__edge,
+  .react-flow__node {
+    transition: none;
+    animation: none;
+  }
+}
