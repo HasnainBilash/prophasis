@@ -255,14 +255,14 @@ called by, click-to-jump) exists at the end of **Phase 3, about 12 hours of
 build time.** Everything after that adds depth and polish.
 
 ### Phase 1: Setup and feasibility check (about 2.5 hours)
-- [ ] Extension scaffold: TypeScript strict, esbuild, ESLint, Prettier, LICENSE (MIT)
-- [ ] Repo-local git config with your name and email
-- [ ] CodeLens button on functions, methods and classes (using document symbols)
-- [ ] One command that opens an empty panel
-- [ ] **Feasibility check, run in a real VS Code on the fixture projects:** call hierarchy (both directions), document symbols, references, implementation and type hierarchy, for TypeScript, JavaScript and Python. Record results in a table in this file (section 3).
-- [ ] Confirm the gutter icon + hover-link workaround works (result: it does not; see section 3.1 and Changes)
-- [ ] Confirm `--vscode-symbolIcon-*` variable names
-- [ ] GitHub Actions CI (lint, type check, build) and README skeleton
+- [x] Extension scaffold: TypeScript strict, esbuild, ESLint, Prettier, LICENSE (MIT)
+- [x] Repo-local git config with your name and email
+- [x] CodeLens button on functions, methods and classes (using document symbols)
+- [x] One command that opens an empty panel
+- [x] **Feasibility check, run in a real VS Code on the fixture projects:** call hierarchy (both directions), document symbols, references, implementation and type hierarchy, for TypeScript, JavaScript and Python. Record results in a table in this file (section 3).
+- [x] Confirm the gutter icon + hover-link workaround works (result: it does not; see section 3.1 and Changes)
+- [x] Confirm `--vscode-symbolIcon-*` variable names
+- [x] GitHub Actions CI (lint, type check, build) and README skeleton
 
 ### Phase 2: The graph engine (about 4–5 hours)
 - [ ] Symbol at the click position (function, method, class)
