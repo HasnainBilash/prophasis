@@ -27,6 +27,8 @@ export interface FakeProject {
   parents?: Record<string, string[]>;
   /** False imitates TypeScript: no type hierarchy, children only through implementations. */
   typeHierarchy?: boolean;
+  /** Hover text by symbol name, as a language server would return it. */
+  docs?: Record<string, string>;
 }
 
 export function pos(line: number, character: number): Pos {
@@ -128,6 +130,16 @@ export class FakeQueries implements LanguageQueries {
     return Object.entries(this.project.parents ?? {})
       .filter(([, parents]) => parents.includes(name))
       .map(([child]) => this.byName(child));
+  }
+
+  async text(uri: string, span: Span): Promise<string> {
+    const lines = this.project.files[uri]?.lines ?? [];
+    return lines.slice(span.start.line, span.end.line + 1).join('\n');
+  }
+
+  async hover(uri: string, at: Pos): Promise<string> {
+    const [item] = await this.prepareCallHierarchy(uri, at);
+    return item ? (this.project.docs?.[item.name] ?? '') : '';
   }
 
   async lineText(uri: string, line: number): Promise<string> {

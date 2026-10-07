@@ -11,6 +11,7 @@ export const CARD = {
   row: 26,
   actions: 40,
   moreHeight: 64,
+  doc: 18,
 } as const;
 
 /** A "+N more" box: cards an expansion left out, loaded on click. */
@@ -61,13 +62,15 @@ export const handle = {
 };
 
 export function cardSize(node: FlowNode): { width: number; height: number } {
+  // A doc comment adds one line under the name.
+  const doc = node.docComment ? CARD.doc : 0;
   if (!node.members) {
-    return { width: CARD.width, height: CARD.height };
+    return { width: CARD.width, height: CARD.height + doc };
   }
   const rows = node.members.length + (node.hiddenMembers ? 1 : 0);
   return {
     width: CARD.classWidth,
-    height: CARD.classHeader + Math.max(rows, 1) * CARD.row + CARD.actions,
+    height: CARD.classHeader + doc + Math.max(rows, 1) * CARD.row + CARD.actions,
   };
 }
 
@@ -260,4 +263,40 @@ export function pathThrough(cardId: string, arrows: Arrow[]): Set<string> {
     }
   }
   return seen;
+}
+
+/**
+ * The shortest call path between the start card and another card, in call
+ * order (caller first): forward along calls when the start leads to it,
+ * otherwise backward when it leads to the start (a caller). Undefined when
+ * the two aren't connected by calls.
+ */
+export function callPath(
+  rootId: string,
+  targetId: string,
+  edges: FlowEdge[],
+): string[] | undefined {
+  const calls = edges.filter((e) => e.kind === 'calls' || e.kind === 'calledBy');
+  const search = (from: string, to: string): string[] | undefined => {
+    const previous = new Map<string, string>([[from, from]]);
+    const queue = [from];
+    for (let id = queue.shift(); id !== undefined; id = queue.shift()) {
+      if (id === to) {
+        const path = [to];
+        for (let step = to; step !== from;) {
+          step = previous.get(step) ?? from;
+          path.unshift(step);
+        }
+        return path;
+      }
+      for (const edge of calls) {
+        if (edge.fromId === id && !previous.has(edge.toId)) {
+          previous.set(edge.toId, id);
+          queue.push(edge.toId);
+        }
+      }
+    }
+    return undefined;
+  };
+  return search(rootId, targetId) ?? search(targetId, rootId);
 }

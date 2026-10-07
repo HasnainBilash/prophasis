@@ -631,6 +631,122 @@ body.vscode-high-contrast-light .brand {
   color: var(--muted);
 }
 
+/* ---- explain ------------------------------------------------------- */
+
+.card-doc {
+  font-size: 11.5px;
+  line-height: 18px;
+  color: var(--text);
+  opacity: 0.85;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.explain-btn {
+  margin-left: auto;
+  padding: 0 6px;
+  height: 18px;
+  border-radius: 9px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--muted);
+  font: 10.5px var(--vscode-font-family, sans-serif);
+  letter-spacing: 0;
+  text-transform: none;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+
+.card:hover .explain-btn,
+.card:focus-within .explain-btn {
+  opacity: 1;
+}
+
+.explain-btn:hover,
+.explain-btn:focus-visible {
+  border-color: var(--k-start);
+  color: var(--text);
+  opacity: 1;
+}
+
+.tag + .explain-btn {
+  margin-left: 4px;
+}
+
+.card-menu {
+  position: fixed;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  min-width: 220px;
+  padding: 4px;
+  border-radius: 6px;
+  border: 1px solid var(--vscode-menu-border, var(--line));
+  background: var(--vscode-menu-background, var(--surface));
+  color: var(--vscode-menu-foreground, var(--text));
+  box-shadow: var(--shadow);
+}
+
+.card-menu button {
+  padding: 5px 10px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  font: 12.5px var(--vscode-font-family, sans-serif);
+  text-align: left;
+  cursor: pointer;
+}
+
+.card-menu button:hover:not(:disabled),
+.card-menu button:focus-visible {
+  background: var(--vscode-menu-selectionBackground, var(--k-start));
+  color: var(--vscode-menu-selectionForeground, var(--text));
+  outline: none;
+}
+
+.card-menu button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.drawer {
+  margin-top: 52px;
+}
+
+.explanation {
+  width: min(380px, calc(100vw - 48px));
+  max-height: calc(100vh - 140px);
+  overflow-y: auto;
+  padding: 12px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--k-start);
+  background: var(--vscode-editorWidget-background, var(--surface));
+  box-shadow: var(--glow), var(--shadow);
+  font-size: 12.5px;
+  line-height: 1.55;
+}
+
+.explain-text {
+  white-space: pre-wrap;
+  margin-top: 4px;
+}
+
+.explain-error {
+  color: var(--vscode-errorForeground, var(--text));
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.small {
+  font-size: 11px;
+  margin-top: 10px;
+}
+
 /* ---- hover path, motion ---------------------------------------------- */
 
 .card {

@@ -24,6 +24,8 @@ interface Case {
     calledBy?: string[];
     /** Methods and constructors on a class card, in line order. */
     members?: string[];
+    /** The start card's doc comment (first paragraph). */
+    doc?: string;
     /** "user path:line @ reference lines", sorted. */
     usedBy?: string[];
     /** "child extends|implements parent path:line-of-the-other-card", sorted. */
@@ -57,6 +59,7 @@ const cases: Case[] = [
     expected: {
       status: 'ok',
       root: 'class OrderService ts/src/orders/orderService.ts:7',
+      doc: 'Creates and pays for customer orders.',
       members: [
         'constructor constructor:8',
         'method placeOrder:12',
@@ -198,6 +201,7 @@ const cases: Case[] = [
     expected: {
       status: 'ok',
       root: 'function validate_cart py/shop/cart/validate.py:1',
+      doc: 'Checks that a cart can be ordered.',
       usedBy: ['place_order py/shop/orders/order_service.py:15 @ 16,21'],
     },
   },
@@ -353,6 +357,7 @@ async function summarise(token: vscode.CancellationToken, uri: vscode.Uri, c: Ca
     ms,
     root: `${root.kind} ${root.name} ${root.filePath}:${root.line}`,
     recursive: root.isRecursive,
+    doc: root.docComment,
     calls: outgoing(graph, root.id).map(
       (e) =>
         `${e.order} ${byId.get(e.toId)?.name} ${byId.get(e.toId)?.kind} ${where(e.toId)} @ ${e.callLines.join(',')}`,

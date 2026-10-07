@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import type { FlowEdge, FlowNode } from '../../src/shared/types';
-import { CARD, cardSize, handle, layoutGraph, pathThrough } from '../../src/webview/layout';
+import {
+  callPath,
+  CARD,
+  cardSize,
+  handle,
+  layoutGraph,
+  pathThrough,
+} from '../../src/webview/layout';
 
 function node(id: string, fields: Partial<FlowNode> = {}): FlowNode {
   return {
@@ -127,5 +134,28 @@ describe('layout speed (PLAN section 5: 150 cards under 300 ms)', () => {
     console.log(`layout of 150 cards: ${ms.toFixed(1)} ms`);
     expect(cards).toHaveLength(150);
     expect(ms).toBeLessThan(300);
+  });
+});
+
+describe('callPath (Explain path from start to here)', () => {
+  const edges = [
+    call('main', 'root', 0),
+    call('root', 'a', 1),
+    call('root', 'b', 2),
+    call('a', 'deep', 1),
+    call('b', 'deep', 1),
+  ];
+
+  it('follows calls forward from the start, shortest first', () => {
+    expect(callPath('root', 'deep', edges)).toEqual(['root', 'a', 'deep']);
+  });
+
+  it('goes backward for a caller, still listed caller first', () => {
+    expect(callPath('root', 'main', edges)).toEqual(['main', 'root']);
+  });
+
+  it('returns nothing when the cards are not joined by calls', () => {
+    const uses = [{ ...call('x', 'root', 0), kind: 'usedBy' as const }];
+    expect(callPath('root', 'x', uses)).toBeUndefined();
   });
 });

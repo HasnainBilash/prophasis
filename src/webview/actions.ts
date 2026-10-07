@@ -8,6 +8,8 @@ export interface CardActions {
   /** Hides what an expansion showed. */
   collapse(nodeId: string, relation: Relation): void;
   reveal(nodeId: string): void;
+  /** Explains a card, or with `path` the call path from the start card to it. */
+  explain(nodeId: string, path?: boolean): void;
   isPending(nodeId: string, relation: Relation): boolean;
   /** A member row's own card data, once it has been expanded. */
   nodeById(nodeId: string): FlowNode | undefined;

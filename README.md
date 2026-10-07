@@ -4,7 +4,7 @@ See how your code connects. Click a function, method or class and Prophasis
 shows it as a card, with arrows to what it calls, who calls it, what a class
 contains and where it is used.
 
-> **Status: early development.** Phase 4 of 7 done: all relationships, tested at scale.
+> **Status: early development.** Phase 5 of 7 done: explanations.
 > Not yet published. The plan is in [docs/PLAN.md](docs/PLAN.md).
 
 ## What works today
@@ -21,18 +21,25 @@ contains and where it is used.
 - Big fan-outs stay readable: one expansion adds at most 12 cards and a
   "+N more" card. **← →** steps back and forward through earlier starting
   points, and the search box highlights cards by name.
+- **✦ Explain** a card in plain language, or right-click a card and choose
+  **Explain path from start to here**. It uses GitHub Copilot through VS
+  Code's language model API (the free plan works), asks before sending any
+  code, sends only that code (12,000 characters at most), keeps nothing on
+  disk and is off in untrusted workspaces. Doc comments appear on the cards.
 - Click a lit button again to hide what it showed. Hover a card to light up
   its flow; a minimap and a "?" legend help you find your way.
 - Follows your VS Code theme: dark, light and high contrast.
 
 ## Settings
 
-| Setting                      | Default | What it does                                  |
-| ---------------------------- | ------- | --------------------------------------------- |
-| `prophasis.defaultDepth`     | 1       | Levels of calls loaded when a graph opens     |
-| `prophasis.maxCards`         | 150     | Most cards shown at once                      |
-| `prophasis.showExternalCode` | false   | Include library and standard-library calls    |
-| `prophasis.excludeGlobs`     | []      | File patterns to leave out, e.g. `**/test/**` |
+| Setting                           | Default | What it does                                  |
+| --------------------------------- | ------- | --------------------------------------------- |
+| `prophasis.defaultDepth`          | 1       | Levels of calls loaded when a graph opens     |
+| `prophasis.maxCards`              | 150     | Most cards shown at once                      |
+| `prophasis.showExternalCode`      | false   | Include library and standard-library calls    |
+| `prophasis.excludeGlobs`          | []      | File patterns to leave out, e.g. `**/test/**` |
+| `prophasis.explain.includeBodies` | false   | Explain on a class: send method bodies too    |
+| `prophasis.explain.maxCharacters` | 12000   | Most code characters sent per Explain         |
 
 ## How it works
 

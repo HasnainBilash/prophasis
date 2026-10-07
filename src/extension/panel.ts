@@ -2,6 +2,8 @@ import { randomBytes } from 'node:crypto';
 import * as vscode from 'vscode';
 import type { GraphBuilder } from './engine/builder';
 import { CancelledError, QueryTimeoutError } from './engine/queries';
+import type { Explainer } from './explain/explainer';
+import { ExplainError } from './explain/provider';
 import { toHost, type ToHost, type ToPanel } from '../shared/messages';
 import type { GraphStatus } from '../shared/types';
 
@@ -38,9 +40,14 @@ export class PanelManager implements vscode.Disposable {
   /** Fires when the user clicks Retry. */
   readonly onDidRequestRetry = this.retried.event;
 
+  // Cancels explanations still running when the panel closes.
+  private explaining = new AbortController();
+
   constructor(
     private readonly extensionUri: vscode.Uri,
     private readonly memory: vscode.Memento,
+    private readonly explainer: Explainer,
+    private readonly includeBodies: () => boolean,
   ) {}
 
   /** Shows a new starting point. It goes on the Back history; anything "forward" is dropped. */
@@ -107,6 +114,8 @@ export class PanelManager implements vscode.Disposable {
       this.session = undefined;
       this.history = [];
       this.position = -1;
+      this.explaining.abort();
+      this.explaining = new AbortController();
       this.closed.fire();
     });
     return panel;
@@ -155,6 +164,13 @@ export class PanelManager implements vscode.Disposable {
         });
         break;
       }
+      case 'explain':
+        void this.explain(message.nodeId, message.pathNodeIds);
+        break;
+      case 'cancelExplain':
+        this.explaining.abort();
+        this.explaining = new AbortController();
+        break;
       case 'back':
         this.go(-1);
         break;
@@ -218,6 +234,45 @@ export class PanelManager implements vscode.Disposable {
           ? 'The language server took too long to answer. Try again in a moment.'
           : `Could not load this: ${String(error)}`;
       this.post({ type: 'expand:done', nodeId, relation, error: text });
+    }
+  }
+
+  /** Explains a card, or the path of cards from the start to it, and sends the answer. */
+  private async explain(nodeId: string, pathNodeIds: string[] | undefined): Promise<void> {
+    const builder = this.session?.builder;
+    if (!builder) {
+      return;
+    }
+    const path = pathNodeIds !== undefined;
+    const graph = builder.snapshot();
+    const name = (id: string) => graph.nodes.find((n) => n.id === id)?.name ?? '?';
+    const title = path
+      ? `Path: ${(pathNodeIds ?? []).map(name).join(' → ')}`
+      : `Explain ${name(nodeId)}`;
+    try {
+      const ids = pathNodeIds ?? [nodeId];
+      const pieces = [];
+      for (const id of ids) {
+        const piece = await builder.codeOf(id, path ? true : this.includeBodies());
+        if (piece) {
+          pieces.push(piece);
+        }
+      }
+      if (pieces.length === 0) {
+        throw new ExplainError('failed', 'The code for this card could not be read.');
+      }
+      const signal = this.explaining.signal;
+      const result = await this.explainer.explain(pieces, path ? 'path' : 'single', signal);
+      // Closed while the model was answering: the user no longer wants it.
+      if (!signal.aborted) {
+        this.post({ type: 'explain:result', nodeId, path, title, ...result });
+      }
+    } catch (error) {
+      if (error instanceof ExplainError && error.code === 'cancelled') {
+        return;
+      }
+      const text = error instanceof Error ? error.message : String(error);
+      this.post({ type: 'explain:result', nodeId, path, title, error: text });
     }
   }
 

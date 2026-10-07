@@ -3,6 +3,8 @@ import { FlowCodeLensProvider, SHOW_FLOW } from './codeLens';
 import { GraphBuilder, type BuilderOptions } from './engine/builder';
 import { CancelledError, QueryTimeoutError } from './engine/queries';
 import { createVscodeQueries, trackOpenedDocuments } from './engine/vscodeQueries';
+import { Explainer } from './explain/explainer';
+import { createVscodeModelProvider } from './explain/vscodeModel';
 import { PanelManager } from './panel';
 import { forgetDocument } from './symbols';
 
@@ -16,7 +18,35 @@ export interface ProphasisTestApi {
 // Activation only registers things. Nothing scans the workspace.
 export function activate(context: vscode.ExtensionContext): ProphasisTestApi {
   const activationStarted = performance.now();
-  const panels = new PanelManager(context.extensionUri, context.globalState);
+  const config = () => vscode.workspace.getConfiguration('prophasis');
+  const explainer = new Explainer(
+    createVscodeModelProvider(),
+    {
+      isTrusted: () => vscode.workspace.isTrusted,
+      consentGiven: () => context.globalState.get<boolean>(EXPLAIN_CONSENT, false),
+      async rememberConsent() {
+        await context.globalState.update(EXPLAIN_CONSENT, true);
+      },
+      async askConsent(message) {
+        const once = 'Send once';
+        const always = 'Always allow';
+        const answer = await vscode.window.showInformationMessage(
+          'Explain with a language model?',
+          { modal: true, detail: message },
+          once,
+          always,
+        );
+        return answer === once ? 'once' : answer === always ? 'always' : undefined;
+      },
+    },
+    () => ({
+      maxCharacters: config().get<number>('explain.maxCharacters', 12000),
+      displayLanguage: vscode.env.language,
+    }),
+  );
+  const panels = new PanelManager(context.extensionUri, context.globalState, explainer, () =>
+    config().get<boolean>('explain.includeBodies', false),
+  );
   let lastArgs: unknown[] = [];
   const codeLenses = new FlowCodeLensProvider();
   // Each start has its own token. Graphs in the Back history keep theirs, so they
@@ -66,6 +96,9 @@ export function activate(context: vscode.ExtensionContext): ProphasisTestApi {
 }
 
 export function deactivate(): void {}
+
+/** Remembers "Always allow" for Explain (per user, across sessions). */
+const EXPLAIN_CONSENT = 'prophasis.explainConsent';
 
 function readOptions(): BuilderOptions & { depth: number } {
   const config = vscode.workspace.getConfiguration('prophasis');

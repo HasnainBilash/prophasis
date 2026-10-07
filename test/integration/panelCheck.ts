@@ -184,6 +184,15 @@ export async function run(): Promise<void> {
   }
   await capture('8-dark-uses-and-types');
 
+  // Explain, end to end. The test copy of VS Code isn't signed in to Copilot,
+  // so the expected answer is the clear "no language model" message.
+  const provider = panels.graph()?.rootId;
+  if (provider) {
+    panels.receive({ type: 'explain', nodeId: provider });
+    await sleep(2500);
+    await capture('9-dark-explain-no-model');
+  }
+
   // 7. Back returns to the previous starting point with its graph as it was.
   panels.receive({ type: 'back' });
   await sleep(800);

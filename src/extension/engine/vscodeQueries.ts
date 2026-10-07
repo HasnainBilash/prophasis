@@ -148,6 +148,26 @@ export function createVscodeQueries(token: vscode.CancellationToken): LanguageQu
       return (items ?? []).map(toCallItem);
     },
 
+    async text(uri, span) {
+      const doc = await document(uri);
+      return doc.getText(
+        new vscode.Range(span.start.line, span.start.character, span.end.line, span.end.character),
+      );
+    },
+
+    async hover(uri, pos) {
+      const hovers = await run<vscode.Hover[] | undefined>(
+        'Reading the doc comment',
+        'vscode.executeHoverProvider',
+        vscode.Uri.parse(uri, true),
+        new vscode.Position(pos.line, pos.character),
+      );
+      return (hovers ?? [])
+        .flatMap((h) => h.contents)
+        .map((c) => (typeof c === 'string' ? c : c.value))
+        .join('\n\n');
+    },
+
     async lineText(uri, line) {
       const doc = await document(uri);
       return line < doc.lineCount ? doc.lineAt(line).text : '';

@@ -13,12 +13,12 @@ import {
 } from '@xyflow/react';
 import { useEffect, useMemo, useReducer, useState } from 'react';
 import type { Relation } from '../shared/types';
-import { ActionsContext, kindInfo, type CardActions } from './actions';
+import { ActionsContext, kindInfo, useActions, type CardActions } from './actions';
 import { CallEdge, type CallEdgeType } from './CallEdge';
 import { Card, type CardNode } from './Card';
 import { MoreCard, type MoreNode } from './MoreCard';
 import { listen, send } from './host';
-import { layoutGraph, pathThrough } from './layout';
+import { callPath, layoutGraph, pathThrough } from './layout';
 import { initialState, pendingKey, reduce, type PanelState } from './state';
 
 const nodeTypes = { card: Card, more: MoreCard };
@@ -41,6 +41,7 @@ function Graph() {
   const [hovered, setHovered] = useState<string | null>(null);
   const [legendOpen, setLegendOpen] = useState(false);
   const [query, setQuery] = useState('');
+  const [menu, setMenu] = useState<{ x: number; y: number; nodeId: string } | null>(null);
 
   useEffect(() => {
     const stop = listen((message) => dispatch({ type: 'message', message }));
@@ -60,10 +61,22 @@ function Graph() {
       reveal(nodeId: string) {
         send({ type: 'reveal', nodeId });
       },
+      explain(nodeId: string, path?: boolean) {
+        const name = state.nodes.get(nodeId)?.name ?? '';
+        const ids =
+          path && state.rootId
+            ? callPath(state.rootId, nodeId, [...state.edges.values()])
+            : undefined;
+        if (path && !ids) {
+          return;
+        }
+        dispatch({ type: 'explainStarted', title: path ? `Path to ${name}` : `Explain ${name}` });
+        send({ type: 'explain', nodeId, pathNodeIds: ids });
+      },
       isPending: (nodeId, relation) => state.pending.has(pendingKey(nodeId, relation)),
       nodeById: (nodeId) => state.nodes.get(nodeId),
     }),
-    [state.pending, state.nodes],
+    [state.pending, state.nodes, state.edges, state.rootId],
   );
 
   const layout = useMemo(() => layoutGraph(state.nodes, [...state.edges.values()]), [state]);
@@ -96,6 +109,14 @@ function Graph() {
           maxZoom={2}
           onNodeMouseEnter={(_, node) => setHovered(node.id)}
           onNodeMouseLeave={() => setHovered(null)}
+          onNodeContextMenu={(event, node) => {
+            if (node.type === 'card') {
+              event.preventDefault();
+              setMenu({ x: event.clientX, y: event.clientY, nodeId: node.id });
+            }
+          }}
+          onPaneClick={() => setMenu(null)}
+          onMoveStart={() => setMenu(null)}
           proOptions={{ hideAttribution: false }}
         >
           <Background variant={BackgroundVariant.Dots} gap={20} size={1.2} className="dots" />
@@ -178,6 +199,17 @@ function Graph() {
               {state.hiddenCount} more not shown (card limit)
             </Panel>
           )}
+          {state.explanation && (
+            <Panel position="top-right" className="drawer" role="region" aria-label="Explanation">
+              <ExplanationView
+                explanation={state.explanation}
+                onClose={() => {
+                  dispatch({ type: 'closeExplanation' });
+                  send({ type: 'cancelExplain' });
+                }}
+              />
+            </Panel>
+          )}
           {state.error && (
             <Panel position="bottom-center" className="toast" role="alert">
               <span>{state.error}</span>
@@ -187,6 +219,17 @@ function Graph() {
             </Panel>
           )}
         </ReactFlow>
+        {menu && (
+          <CardMenu
+            {...menu}
+            canExplainPath={
+              menu.nodeId !== state.rootId &&
+              state.rootId !== undefined &&
+              callPath(state.rootId, menu.nodeId, [...state.edges.values()]) !== undefined
+            }
+            onClose={() => setMenu(null)}
+          />
+        )}
       </div>
     </ActionsContext.Provider>
   );
@@ -335,6 +378,82 @@ function SearchBox(props: {
       />
       {props.matches && <span className="search-count">{count}</span>}
     </span>
+  );
+}
+
+/** Right-click menu on a card. */
+function CardMenu(props: {
+  x: number;
+  y: number;
+  nodeId: string;
+  canExplainPath: boolean;
+  onClose: () => void;
+}) {
+  const actions = useActions();
+  const item = (label: string, run: () => void, disabled = false, tip?: string) => (
+    <button
+      type="button"
+      role="menuitem"
+      disabled={disabled}
+      title={tip}
+      onClick={() => {
+        run();
+        props.onClose();
+      }}
+    >
+      {label}
+    </button>
+  );
+  return (
+    <div
+      className="card-menu"
+      role="menu"
+      style={{ left: props.x, top: props.y }}
+      onKeyDown={(event) => event.key === 'Escape' && props.onClose()}
+    >
+      {item('Open code', () => actions.reveal(props.nodeId))}
+      {item('Explain this', () => actions.explain(props.nodeId))}
+      {item(
+        'Explain path from start to here',
+        () => actions.explain(props.nodeId, true),
+        !props.canExplainPath,
+        props.canExplainPath
+          ? 'Explains how the calls lead from the start card to this one'
+          : 'Only for cards joined to the start card by calls',
+      )}
+    </div>
+  );
+}
+
+/** The explanation drawer. Generated text is shown as plain text, never as HTML. */
+function ExplanationView(props: {
+  explanation: NonNullable<PanelState['explanation']>;
+  onClose: () => void;
+}) {
+  const { title, loading, text, error, model, truncated, cached } = props.explanation;
+  return (
+    <div className="explanation">
+      <div className="legend-head">
+        <b>{title}</b>
+        <button type="button" className="icon-btn" onClick={props.onClose} title="Close">
+          ×
+        </button>
+      </div>
+      {loading && (
+        <p className="muted">
+          <span className="spinner" aria-hidden="true" /> Asking the language model…
+        </p>
+      )}
+      {error && <p className="explain-error">{error}</p>}
+      {text && <div className="explain-text">{text}</div>}
+      {text && (
+        <p className="muted small">
+          Generated by {model ?? 'a language model'}
+          {cached ? ' (from this session)' : ''}, based only on the code that was sent
+          {truncated ? ', which was cut to fit' : ''}. It can be wrong.
+        </p>
+      )}
+    </div>
   );
 }
 

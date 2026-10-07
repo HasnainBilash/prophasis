@@ -52,8 +52,24 @@ export function Card({ data }: NodeProps<CardNode>) {
               library
             </span>
           )}
+          <button
+            type="button"
+            className="explain-btn"
+            title="Explain this in plain language. Sends its code to a language model, after asking. Right-click the card to explain a path."
+            onClick={(event) => {
+              event.stopPropagation();
+              actions.explain(node.id);
+            }}
+          >
+            ✦ Explain
+          </button>
         </div>
         <div className="card-name">{displayName(node)}</div>
+        {node.docComment && (
+          <div className="card-doc" title={node.docComment}>
+            {node.docComment}
+          </div>
+        )}
         <div className="card-path">
           {node.filePath} · line {node.line}
         </div>

@@ -84,6 +84,14 @@ export const toHost = z.discriminatedUnion('type', [
   /** `all`: also load what a "+N more" card left out. */
   z.object({ type: z.literal('expand'), nodeId: id, relation, all: z.boolean().optional() }),
   z.object({ type: z.literal('collapse'), nodeId: id, relation }),
+  /** Explain one card, or with `pathNodeIds` the path of cards from the start to it. */
+  z.object({
+    type: z.literal('explain'),
+    nodeId: id,
+    pathNodeIds: z.array(id).min(2).max(30).optional(),
+  }),
+  /** The user closed the explanation drawer: stop waiting for the model. */
+  z.object({ type: z.literal('cancelExplain') }),
   z.object({ type: z.literal('back') }),
   z.object({ type: z.literal('forward') }),
   /** The user closed the first-open hint; it is not shown again. */
@@ -109,6 +117,18 @@ export const toPanel = z.discriminatedUnion('type', [
     canGoForward: z.boolean().optional(),
   }),
   z.object({ type: z.literal('graph:patch'), patch: graphPatch }),
+  /** The answer to an `explain` request, or why there is none. */
+  z.object({
+    type: z.literal('explain:result'),
+    nodeId: id,
+    path: z.boolean(),
+    title: z.string(),
+    text: z.string().optional(),
+    error: z.string().optional(),
+    model: z.string().optional(),
+    truncated: z.boolean().optional(),
+    cached: z.boolean().optional(),
+  }),
   /** A card finished (or failed) loading; `error` is shown next to the graph. */
   z.object({
     type: z.literal('expand:done'),

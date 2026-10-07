@@ -20,13 +20,25 @@ export interface PanelState {
   showHint: boolean;
   canGoBack: boolean;
   canGoForward: boolean;
+  /** The explanation drawer: waiting for an answer, or showing one. */
+  explanation?: {
+    title: string;
+    loading: boolean;
+    text?: string;
+    error?: string;
+    model?: string;
+    truncated?: boolean;
+    cached?: boolean;
+  };
 }
 
 export type Action =
   | { type: 'message'; message: ToPanel }
   | { type: 'expandStarted'; nodeId: string; relation: Relation }
   | { type: 'dismissError' }
-  | { type: 'dismissHint' };
+  | { type: 'dismissHint' }
+  | { type: 'explainStarted'; title: string }
+  | { type: 'closeExplanation' };
 
 export const initialState: PanelState = {
   status: 'loading',
@@ -54,6 +66,10 @@ export function reduce(state: PanelState, action: Action): PanelState {
       return { ...state, error: undefined };
     case 'dismissHint':
       return { ...state, showHint: false };
+    case 'explainStarted':
+      return { ...state, explanation: { title: action.title, loading: true } };
+    case 'closeExplanation':
+      return { ...state, explanation: undefined };
     case 'message':
       return applyMessage(state, action.message);
   }
@@ -105,6 +121,21 @@ function applyMessage(state: PanelState, message: ToPanel): PanelState {
         hiddenCount: patch.hiddenCount,
         focusIds,
         revision: state.revision + 1,
+      };
+    }
+    case 'explain:result': {
+      // Closing the drawer cancels the request, so any answer that arrives is wanted.
+      return {
+        ...state,
+        explanation: {
+          title: message.title,
+          loading: false,
+          text: message.text,
+          error: message.error,
+          model: message.model,
+          truncated: message.truncated,
+          cached: message.cached,
+        },
       };
     }
     case 'expand:done': {

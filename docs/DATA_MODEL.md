@@ -73,7 +73,7 @@ classDiagram
 | `id` | `<file URI>#<kind>:<qualified name>@<start line>:<start column>`. The same symbol always gets the same id, so it can never appear as two cards. |
 | `filePath` | Workspace-relative for display; the full URI is kept in the host only. |
 | `signature` | One line, taken from the symbol's declaration text and cut at 120 characters. |
-| `docComment` | First paragraph of the doc comment if the language server gives one, else empty. |
+| `docComment` | First paragraph of the doc comment, read from the language server's hover text (code blocks, `@param` sections and hidden HTML markers removed, 160 characters at most), else empty. |
 | `parentId` | For a method: the id of its class card, so arrows can start from a member row. |
 | `members` | Only on class-like cards: one row per method, constructor or field. Rows cap at 40; `hiddenMembers` holds the rest for the "+N more" row. |
 | `isExternal` | The symbol lives outside the workspace folders (library, standard library). Hidden unless the setting allows it. |
@@ -111,7 +111,8 @@ checked with Zod when it arrives, in both directions.
 | `expand` | `nodeId`, `relation`, optional `all` | Loads that relationship one level deep, sends `graph:patch`. `all` also loads what a "+N more" card left out. |
 | `collapse` | `nodeId`, `relation` | Sends `graph:patch` removing the nodes only reachable through it. |
 | `reveal` | `nodeId` | Opens the file and selects the symbol in the editor. |
-| `explain` | `nodeId` or `pathNodeIds` | Checks consent, calls the explain provider, sends `explain:result`. |
+| `explain` | `nodeId`, optional `pathNodeIds` (start → card, 2 to 30 ids) | Checks Workspace Trust and consent, reads the code, calls the explain provider, sends `explain:result`. |
+| `cancelExplain` | none | The user closed the explanation drawer: stops waiting for the model. |
 | `refresh` | `nodeId` | Rebuilds a stale card. |
 | `export` | `format` (`mermaid`) | Copies the Mermaid text. |
 | `back` / `forward` | none | Moves through earlier starting points (up to 20). Each keeps its graph as the user left it; `graph:init` says whether there is somewhere to go (`canGoBack`, `canGoForward`). |
@@ -124,7 +125,7 @@ checked with Zod when it arrives, in both directions.
 |---|---|
 | `graph:init` | a full `FlowGraph`, the status, and `showHint` (show the one-time "how to explore" tip) |
 | `graph:patch` | nodes and edges to add (an edge with an existing id replaces it), nodes whose fields changed (`updateNodes`, e.g. `expanded` or `isRecursive`), ids to remove, new `hiddenCount` |
-| `explain:result` | `nodeId` or `pathNodeIds`, text, or an error code |
+| `explain:result` | `nodeId`, `path`, a title, and either the text (with the model name, whether code was cut to fit, whether it came from this session's memory) or an error message |
 | `status` | `loading`, `languageServerStarting`, `unsupported`, `empty`, or an error message. Sent inside `graph:init` (field `status`), so the panel never shows a graph and a status that disagree. |
 | `expand:done` | `nodeId`, `relation`, and an error text if loading failed; stops the card's loading spinner |
 | `theme` | not needed: the webview reads VS Code's CSS variables directly |

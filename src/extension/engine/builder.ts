@@ -10,7 +10,9 @@ import type {
   NodeKind,
   Relation,
 } from '../../shared/types';
+import type { CodePiece } from '../explain/prompts';
 import { LruCache } from './cache';
+import { docFromHover } from './docs';
 import {
   isAnonymousCallback,
   isClassLike,
@@ -116,6 +118,7 @@ export class GraphBuilder {
     const root = await this.resolveChain(uri, chain);
     this.addNode(root.node, root.location, true);
     this.rootId = root.node.id;
+    await this.fillDocs([root.node]);
 
     let status: GraphStatus = 'ok';
     if (isClassLike(root.node.kind)) {
@@ -227,6 +230,7 @@ export class GraphBuilder {
       counts[relation] = more;
     }
     node.more = Object.keys(counts).length > 0 ? counts : undefined;
+    await this.fillDocs(patch.addNodes);
     touched.add(node);
     patch.updateNodes = [...touched].filter((n) => !patch.addNodes.includes(n));
     patch.hiddenCount = this.hiddenCount;
@@ -429,6 +433,40 @@ export class GraphBuilder {
     return patch;
   }
 
+  /**
+   * The code of a card, for Explain. A class without `includeBodies` is sent
+   * as its first line plus one line per member, which is usually enough to
+   * explain its role and much smaller.
+   */
+  async codeOf(nodeId: string, includeBodies: boolean): Promise<CodePiece | undefined> {
+    const node = this.nodes.get(nodeId);
+    const location = this.locations.get(nodeId);
+    if (!node || !location) {
+      return undefined;
+    }
+    const chain = chainAt(await this.symbolsOf(location.uri), location.pos);
+    const symbol = chain?.[chain.length - 1];
+    const span =
+      symbol && containsPos(symbol.selectionRange, location.pos)
+        ? symbol.range
+        : (location.item?.range ?? { start: location.pos, end: location.pos });
+    let code: string;
+    if (isClassLike(node.kind) && symbol && !includeBodies) {
+      const lines = [await this.queries.lineText(location.uri, symbol.range.start.line)];
+      for (const child of symbol.children) {
+        lines.push(await this.queries.lineText(location.uri, child.selectionRange.start.line));
+      }
+      code = lines.join('\n');
+    } else {
+      code = await this.queries.text(location.uri, span);
+    }
+    return {
+      label: `${node.kind} ${node.name} (${node.filePath}, line ${node.line})`,
+      language: languageOf(location.uri),
+      code,
+    };
+  }
+
   snapshot(): FlowGraph {
     return {
       rootId: this.rootId,
@@ -557,6 +595,25 @@ export class GraphBuilder {
       return this.options.showExternalCode;
     }
     return !this.isExcluded(path);
+  }
+
+  /** Reads doc comments (from hover text) for new cards, in parallel; failures leave them empty. */
+  private async fillDocs(nodes: FlowNode[]): Promise<void> {
+    await Promise.all(
+      nodes
+        .filter((node) => !node.isExternal && !node.docComment)
+        .map(async (node) => {
+          const location = this.locations.get(node.id);
+          if (!location) {
+            return;
+          }
+          try {
+            node.docComment = docFromHover(await this.queries.hover(location.uri, location.pos));
+          } catch {
+            // A slow or failing hover only costs the doc line, never the card.
+          }
+        }),
+    );
   }
 
   private isVisible(node: FlowNode): boolean {
@@ -838,6 +895,21 @@ export class GraphBuilder {
 }
 
 // ---- pure helpers --------------------------------------------------------
+
+/** Language id for a code fence, from the file extension. */
+function languageOf(uri: string): string {
+  const ext = uri.slice(uri.lastIndexOf('.') + 1).toLowerCase();
+  const map: Record<string, string> = {
+    ts: 'typescript',
+    tsx: 'tsx',
+    js: 'javascript',
+    jsx: 'jsx',
+    mjs: 'javascript',
+    cjs: 'javascript',
+    py: 'python',
+  };
+  return map[ext] ?? ext;
+}
 
 /** `<file URI>#<kind>:<qualified name>@<line>:<column>` (0-based), as in docs/DATA_MODEL.md. */
 export function makeId(uri: string, kind: NodeKind, qualifiedName: string, pos: Pos): string {

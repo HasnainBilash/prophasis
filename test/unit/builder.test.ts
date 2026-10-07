@@ -359,3 +359,30 @@ describe('call order', () => {
     ]);
   });
 });
+
+describe('doc comments and code for Explain', () => {
+  const withDocs = (): FakeProject => ({
+    ...project,
+    docs: { pay: '```ts\nfunction pay(): void\n```\nCharges the customer.' },
+  });
+
+  it('puts the first doc paragraph on new cards', async () => {
+    const builder = new GraphBuilder(new FakeQueries(withDocs()));
+    await builder.start(A, pos(1, 3));
+    const pay = builder.snapshot().nodes.find((n) => n.id === id.pay);
+    expect(pay?.docComment).toBe('Charges the customer.');
+  });
+
+  it("reads a function's whole code, and a class as one line per member", async () => {
+    const builder = new GraphBuilder(new FakeQueries(project));
+    await builder.start(A, pos(0, 7));
+    const shop = await builder.codeOf(id.shop, false);
+    expect(shop).toEqual({
+      label: 'class Shop (a.ts, line 1)',
+      language: 'typescript',
+      code: 'class Shop {\n  buy() {\n  price = 3;',
+    });
+    const full = await builder.codeOf(id.shop, true);
+    expect(full?.code.split('\n')).toHaveLength(7);
+  });
+});

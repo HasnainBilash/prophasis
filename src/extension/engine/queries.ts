@@ -59,6 +59,10 @@ export interface LanguageQueries {
   prepareTypeHierarchy(uri: string, pos: Pos): Promise<CallItem[]>;
   supertypes(item: CallItem): Promise<CallItem[]>;
   subtypes(item: CallItem): Promise<CallItem[]>;
+  /** The text of a range, for Explain. */
+  text(uri: string, span: Span): Promise<string>;
+  /** Hover text at a position (Markdown), where language servers put doc comments. */
+  hover(uri: string, pos: Pos): Promise<string>;
   /** Text of one line, for the one-line signature. */
   lineText(uri: string, line: number): Promise<string>;
   /** Changes whenever the file's contents change. */

@@ -57,6 +57,18 @@
           },
           "default": [],
           "markdownDescription": "File patterns to leave out of the graph, relative to the workspace folder. Example: `**/test/**`."
+        },
+        "prophasis.explain.includeBodies": {
+          "type": "boolean",
+          "default": false,
+          "description": "For \"Explain\" on a class: send the method bodies too, not only one line per member. Gives fuller answers but sends more code."
+        },
+        "prophasis.explain.maxCharacters": {
+          "type": "integer",
+          "default": 12000,
+          "minimum": 1000,
+          "maximum": 100000,
+          "description": "Most characters of code sent in one Explain request. Longer code is cut to fit."
         }
       }
     }
