@@ -32,6 +32,13 @@ export async function run(): Promise<void> {
   const { panels } = api;
   const log: string[] = [];
   const failures: string[] = [];
+  // Written as it goes, so a crash still shows how far it got.
+  const save = (stage: string) =>
+    writeFileSync(
+      out,
+      JSON.stringify({ vscodeVersion: vscode.version, stage, failures, log }, null, 2),
+    );
+  save('started');
 
   const config = vscode.workspace.getConfiguration('workbench');
   const setTheme = async (theme: string) => {
@@ -73,6 +80,7 @@ export async function run(): Promise<void> {
     await sleep(1500); // let the panel lay out and fit
     const result = await captureForeground(join(shots, `${name}.png`));
     log.push(`${name}: ${result}`);
+    save(name);
     console.log(`[panel] ${name}: ${result}`);
   };
 
@@ -160,7 +168,7 @@ export async function run(): Promise<void> {
   );
   await capture('7-dark-empty');
 
-  writeFileSync(out, JSON.stringify({ vscodeVersion: vscode.version, failures, log }, null, 2));
+  save('done');
   if (failures.length > 0) {
     throw new Error(`Panel check failed:\n  ${failures.join('\n  ')}`);
   }

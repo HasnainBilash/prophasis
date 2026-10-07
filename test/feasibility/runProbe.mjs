@@ -96,9 +96,10 @@ try {
   });
 } catch (error) {
   // The check writes its list of differences before failing; show it.
-  const details = existsSync(out) ? JSON.parse(readFileSync(out, 'utf8')).failures : undefined;
+  const saved = existsSync(out) ? JSON.parse(readFileSync(out, 'utf8')) : undefined;
+  const details = saved?.failures;
   const why = details
-    ? `\n${details.join('\n')}`
+    ? ` (stopped at: ${saved.stage ?? 'end'})\n${details.join('\n')}`
     : ' (no results written: VS Code may not have started)';
   fail(`${suite} failed: ${String(error)}${why}`);
 }

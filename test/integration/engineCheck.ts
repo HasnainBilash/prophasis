@@ -183,16 +183,24 @@ export async function run(): Promise<void> {
   const token = new vscode.CancellationTokenSource().token;
   const failures: string[] = [];
   const results: unknown[] = [];
+  // Written after every case, so a crash still leaves a record of how far it got.
+  const save = (stage: string) =>
+    writeFileSync(
+      out,
+      JSON.stringify({ vscodeVersion: vscode.version, stage, failures, results }, null, 2),
+    );
+  save('started');
 
   for (const c of cases) {
     const uri = vscode.Uri.joinPath(fixturesRoot, c.file);
     await vscode.window.showTextDocument(await vscode.workspace.openTextDocument(uri));
     const started = Date.now();
-    let actual = await summarise(token, uri, c);
-    // Wait for the language server: "starting" answers are retried for up to 60 s.
-    while (actual.status !== c.expected.status && Date.now() - started < 60_000) {
+    let actual = await summariseSafely(token, uri, c);
+    // Wait for the language server: "starting" answers and timeouts are retried
+    // (a cold CI machine can take well over a minute for the first answer).
+    while (actual.status !== c.expected.status && Date.now() - started < WAIT_MS) {
       await new Promise((resolve) => setTimeout(resolve, 1000));
-      actual = await summarise(token, uri, c);
+      actual = await summariseSafely(token, uri, c);
     }
     const label = `${c.file}:${c.at[0]}`;
     for (const key of Object.keys(c.expected) as (keyof Case['expected'])[]) {
@@ -204,18 +212,27 @@ export async function run(): Promise<void> {
     }
     results.push({ case: label, ms: actual.ms, actual });
     console.log(`[engine] ${label}: ${actual.status} in ${actual.ms} ms`);
+    save(label);
   }
 
   for (const [file, lines] of Object.entries(expectedLenses)) {
     const uri = vscode.Uri.joinPath(fixturesRoot, file);
     await vscode.window.showTextDocument(await vscode.workspace.openTextDocument(uri));
-    const lenses = await vscode.commands.executeCommand<vscode.CodeLens[]>(
-      'vscode.executeCodeLensProvider',
-      uri,
-    );
-    const got = (lenses ?? [])
-      .filter((l) => l.command?.command === 'prophasis.showFlow')
-      .map((l) => l.range.start.line + 1);
+    const started = Date.now();
+    let got: number[];
+    do {
+      const lenses = await vscode.commands.executeCommand<vscode.CodeLens[]>(
+        'vscode.executeCodeLensProvider',
+        uri,
+      );
+      got = (lenses ?? [])
+        .filter((l) => l.command?.command === 'prophasis.showFlow')
+        .map((l) => l.range.start.line + 1);
+      if (JSON.stringify(got) === JSON.stringify(lines)) {
+        break;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+    } while (Date.now() - started < WAIT_MS);
     if (JSON.stringify(got) !== JSON.stringify(lines)) {
       failures.push(
         `${file} buttons\n    expected ${JSON.stringify(lines)}\n    actual   ${JSON.stringify(got)}`,
@@ -224,13 +241,25 @@ export async function run(): Promise<void> {
     results.push({ lenses: file, lines: got });
   }
 
-  writeFileSync(out, JSON.stringify({ vscodeVersion: vscode.version, failures, results }, null, 2));
+  save('done');
   if (failures.length > 0) {
     throw new Error(`${failures.length} difference(s):\n  ${failures.join('\n  ')}`);
   }
   console.log(
     `[engine] all ${cases.length} graphs and ${Object.keys(expectedLenses).length} button lists match`,
   );
+}
+
+/** Longest wait for a language server to give the expected answer. */
+const WAIT_MS = 120_000;
+
+/** Like summarise, but a timeout or other error becomes a status, so it can be retried. */
+async function summariseSafely(token: vscode.CancellationToken, uri: vscode.Uri, c: Case) {
+  try {
+    return await summarise(token, uri, c);
+  } catch (error) {
+    return { status: `error: ${String(error)}`, ms: 0 } as Awaited<ReturnType<typeof summarise>>;
+  }
 }
 
 /** Builds a graph the way the "Show flow" command does, and reduces it to comparable text. */
