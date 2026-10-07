@@ -109,7 +109,7 @@ checked with Zod when it arrives, in both directions.
 | `reveal` | `nodeId` | Opens the file and selects the symbol in the editor. |
 | `explain` | `nodeId` or `pathNodeIds` | Checks consent, calls the explain provider, sends `explain:result`. |
 | `refresh` | `nodeId` | Rebuilds a stale card. |
-| `export` | `format` (`png` or `mermaid`) | Writes or copies the result. |
+| `export` | `format` (`mermaid`) | Copies the Mermaid text. |
 | `back` / `forward` | none | Moves through earlier starting points. |
 
 ### Host → webview

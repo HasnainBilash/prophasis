@@ -73,9 +73,9 @@ tools only.
 - Doc comment (JSDoc / docstring) shown on cards.
 - **Explain** a function or a class (opt-in, needs consent).
 - **Explain a path:** right-click a card → "Explain path from start to here".
-- Search and filter in the graph; collapse a card; "pin" a card so it stays.
+- Search in the graph; collapse a card.
 - Back and forward through earlier starting points.
-- Export as PNG and as Mermaid text.
+- Export as Mermaid text.
 - Settings: depth, card limit, library code on/off, explanation provider.
 
 ### Later
@@ -83,6 +83,7 @@ tools only.
 - Flow inside a function (if / loop branches); needs our own parser.
 - Variables and constants as starting points.
 - Saving and sharing a graph.
+- Export as PNG; filter and pin cards; "Add to current graph" (moved here in Phase 1, see Changes in `docs/PLAN.md`).
 
 ### Not building
 - A chat bot or "ask about my codebase" feature.
@@ -193,8 +194,8 @@ colours. It also avoids a whole class of dark/light/high-contrast bugs.
 | Name | Prophasis | Your choice |
 | Language scope v1 | TypeScript / JavaScript and Python tested; others best effort | Honest and testable |
 | Minimum VS Code | 1.90 | The Language Model API needs 1.90 or newer, per the VS Code docs |
-| Button | CodeLens (main), plus title-bar icon, right-click menu, shortcut, and a gutter icon whose hover tooltip contains a "Show flow" link | Gutter icons themselves can't be clicked by extensions (section 3 of `docs/PLAN.md`) |
-| New start while a panel is open | Replace the graph, keep a Back history; "Add to current graph" in the menu | Predictable default, power option available |
+| Button | CodeLens (main), plus right-click menu and shortcut. No gutter icon or title-bar icon (changed in Phase 1, see "Changes" in `docs/PLAN.md`) | Extensions can't make gutter icons clickable or give them a hover (section 3.1 of `docs/PLAN.md`) |
+| New start while a panel is open | Replace the graph, keep a Back history | Predictable. "Add to current graph" moved to Later |
 | Explain a path | Right-click a card → "Explain path from start to here" (shortest call path) | Simple to use, simple to build |
 | File imports | Later | Not available from language servers |
 | Licence | MIT | Common, simple, interview-friendly |

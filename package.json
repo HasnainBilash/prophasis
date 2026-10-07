@@ -1,0 +1,53 @@
+{
+  "name": "prophasis",
+  "displayName": "Prophasis",
+  "description": "See how your code connects: functions, methods and classes as cards and arrows.",
+  "version": "0.0.1",
+  "publisher": "prophasis",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/hasnainbilash/prophasis.git"
+  },
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "Visualization",
+    "Programming Languages"
+  ],
+  "main": "./dist/extension.js",
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "prophasis.showFlow",
+        "title": "Show Flow",
+        "category": "Prophasis"
+      }
+    ]
+  },
+  "scripts": {
+    "build": "node esbuild.mjs",
+    "watch": "node esbuild.mjs --watch",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "probe": "npm run build && node test/feasibility/runProbe.mjs"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^20.19.0",
+    "@types/vscode": "1.90.0",
+    "@vscode/test-electron": "^3.1.0",
+    "esbuild": "^0.28.2",
+    "eslint": "^10.12.0",
+    "globals": "^17.13.0",
+    "prettier": "^3.9.9",
+    "typescript": "~6.0.3",
+    "typescript-eslint": "^8.71.1"
+  }
+}

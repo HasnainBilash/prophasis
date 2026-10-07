@@ -1,0 +1,6 @@
+{
+  "folders": [{ "path": "ts" }, { "path": "js" }, { "path": "py" }],
+  "settings": {
+    "python.analysis.typeCheckingMode": "off"
+  }
+}
