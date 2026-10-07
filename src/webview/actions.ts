@@ -1,5 +1,6 @@
 import { createContext, useContext } from 'react';
 import type { FlowNode, NodeKind, Relation } from '../shared/types';
+import type { Direction } from './layout';
 
 /** What cards can do, provided once by the app instead of copied into every card. */
 export interface CardActions {
@@ -8,6 +9,8 @@ export interface CardActions {
   /** Hides what an expansion showed. */
   collapse(nodeId: string, relation: Relation): void;
   reveal(nodeId: string): void;
+  /** Moves keyboard focus to a neighbouring card. */
+  move(nodeId: string, direction: Direction): void;
   /** Explains a card, or with `path` the call path from the start card to it. */
   explain(nodeId: string, path?: boolean): void;
   isPending(nodeId: string, relation: Relation): boolean;

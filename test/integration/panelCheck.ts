@@ -205,6 +205,22 @@ export async function run(): Promise<void> {
     failures.push(`history: expected back to format and forward to PaymentProvider`);
   }
 
+  // 8. Copy as Mermaid puts a diagram on the clipboard.
+  await vscode.commands.executeCommand('prophasis.copyMermaid');
+  const mermaid = await vscode.env.clipboard.readText();
+  log.push(`mermaid: ${mermaid.split('\n').length} lines, starts "${mermaid.split('\n')[0]}"`);
+  if (!mermaid.startsWith('flowchart LR') || !mermaid.includes('PaymentProvider')) {
+    failures.push('copy as Mermaid: expected a flowchart with PaymentProvider on the clipboard');
+  }
+
+  // 9. The Get Started walkthrough opens.
+  await vscode.commands.executeCommand(
+    'workbench.action.openWalkthrough',
+    'prophasis.prophasis#start',
+    false,
+  );
+  await capture('10-walkthrough');
+
   save('done');
   if (failures.length > 0) {
     throw new Error(`Panel check failed:\n  ${failures.join('\n  ')}`);

@@ -6,6 +6,7 @@ import {
   cardSize,
   handle,
   layoutGraph,
+  neighbour,
   pathThrough,
 } from '../../src/webview/layout';
 
@@ -157,5 +158,22 @@ describe('callPath (Explain path from start to here)', () => {
   it('returns nothing when the cards are not joined by calls', () => {
     const uses = [{ ...call('x', 'root', 0), kind: 'usedBy' as const }];
     expect(callPath('root', 'x', uses)).toBeUndefined();
+  });
+});
+
+describe('neighbour (keyboard navigation)', () => {
+  const nodes = map(node('caller'), node('root'), node('a'), node('b'));
+  const edges = [call('caller', 'root', 0), call('root', 'b', 2), call('root', 'a', 1)];
+  const layout = layoutGraph(nodes, edges);
+
+  it('goes right to call 1, left to the caller', () => {
+    expect(neighbour(layout, 'root', 'right')).toBe('a');
+    expect(neighbour(layout, 'root', 'left')).toBe('caller');
+  });
+
+  it('goes up and down within a column, in reading order', () => {
+    expect(neighbour(layout, 'a', 'down')).toBe('b');
+    expect(neighbour(layout, 'b', 'up')).toBe('a');
+    expect(neighbour(layout, 'a', 'up')).toBeUndefined();
   });
 });

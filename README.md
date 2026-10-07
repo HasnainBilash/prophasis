@@ -4,13 +4,16 @@ See how your code connects. Click a function, method or class and Prophasis
 shows it as a card, with arrows to what it calls, who calls it, what a class
 contains and where it is used.
 
-> **Status: early development.** Phase 5 of 7 done: explanations.
+> **Status: early development.** Phase 6 of 7 done: polish and onboarding.
 > Not yet published. The plan is in [docs/PLAN.md](docs/PLAN.md).
 
 ## What works today
 
 - A **Show flow** button (CodeLens) above every function, method and class.
-- **Prophasis: Show Flow** in the Command Palette, using the cursor position.
+- Or right-click inside a function and choose **Prophasis: Show Flow**, press
+  **Ctrl+Shift+Alt+F** (**Cmd+Shift+Alt+F** on a Mac), or use the Command
+  Palette.
+- A **Get started with Prophasis** walkthrough on VS Code's Welcome page.
 - A graph panel: the starting point as a card, with numbered arrows to what
   it calls (in code order). Every card has **Calls** and **Called by**
   buttons to explore further, and clicking a card opens its code. Class cards
@@ -28,6 +31,10 @@ contains and where it is used.
   disk and is off in untrusted workspaces. Doc comments appear on the cards.
 - Click a lit button again to hide what it showed. Hover a card to light up
   its flow; a minimap and a "?" legend help you find your way.
+- **⤓** copies the graph as a Mermaid diagram for Markdown files, GitHub and
+  docs.
+- Keyboard: Tab to a card, arrow keys move between cards, Enter opens the
+  code.
 - Follows your VS Code theme: dark, light and high contrast.
 
 ## Settings

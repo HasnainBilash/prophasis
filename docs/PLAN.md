@@ -316,11 +316,11 @@ build time.** Everything after that adds depth and polish.
 - [x] Before starting: re-read the Language Model API docs for current limits
 
 ### Phase 6: Polish (about 1.5–2 hours)
-- [ ] Right-click menu, shortcut
-- [ ] A short "Get Started" walkthrough (VS Code's built-in onboarding page): what Prophasis shows, how to start, how to read the arrows
-- [ ] Export Mermaid
-- [ ] Keyboard navigation inside the graph, contrast, screen-reader labels
-- [ ] Fixes and wording from your testing
+- [x] Right-click menu, shortcut
+- [x] A short "Get Started" walkthrough (VS Code's built-in onboarding page): what Prophasis shows, how to start, how to read the arrows
+- [x] Export Mermaid
+- [x] Keyboard navigation inside the graph, contrast, screen-reader labels
+- [x] Fixes and wording from your testing
 
 ### Phase 7: Production hardening and release (about 3–4 hours)
 - [ ] Security checklist, dependency audit, licence check, structured error logging
@@ -404,6 +404,7 @@ estimates; Phase 1 will show how far off they are.
 | 2026-10-07 | Class properties and fields holding a function (`produce = (base) => …`) are starting points and method rows; calls to members a file doesn't list (a method in a type alias) are named after the member. | Found on the real immer project in Phase 4. | About 30 min, inside Phase 4 | Standing OK for fixes |
 | 2026-10-07 | Arrow numbers follow where each called *name* is written (the end of the callee expression), not where the expression starts. | Chained calls like `getPlugin(x).generate()` were numbered in the wrong order; this also corrected one Phase 2 expectation (`new Circle(r).describe()`: Circle first). | None | Standing OK for fixes |
 | 2026-10-07 | Explain: closing the drawer sends `cancelExplain` and stops the request; doc comments come from hover text. | Closing should not spend the user's model quota; hover text is where every language server already puts doc comments, so no per-language parsing is needed. | None (part of Phase 5) | Standing OK for small corrections |
+| 2026-10-07 | Shortcut is Ctrl+Shift+Alt+F (Cmd+Shift+Alt+F on Mac); the right-click entry only shows where the language has call hierarchy (`editorHasCallHierarchyProvider`); "Copy Graph as Mermaid" is also a command. The Marketplace publisher account is left to the owner. | Three-modifier shortcuts rarely clash with VS Code defaults; a menu entry that can't work would confuse. Creating an account is outward-facing, so it needs the owner. | None | Standing OK for small corrections |
 
 ---
 

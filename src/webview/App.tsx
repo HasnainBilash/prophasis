@@ -18,7 +18,7 @@ import { CallEdge, type CallEdgeType } from './CallEdge';
 import { Card, type CardNode } from './Card';
 import { MoreCard, type MoreNode } from './MoreCard';
 import { listen, send } from './host';
-import { callPath, layoutGraph, pathThrough } from './layout';
+import { callPath, layoutGraph, neighbour, pathThrough } from './layout';
 import { initialState, pendingKey, reduce, type PanelState } from './state';
 
 const nodeTypes = { card: Card, more: MoreCard };
@@ -49,6 +49,9 @@ function Graph() {
     return stop;
   }, []);
 
+  const layout = useMemo(() => layoutGraph(state.nodes, [...state.edges.values()]), [state]);
+  const flow = useReactFlow();
+
   const actions = useMemo<CardActions>(
     () => ({
       expand(nodeId: string, relation: Relation, all?: boolean) {
@@ -60,6 +63,20 @@ function Graph() {
       },
       reveal(nodeId: string) {
         send({ type: 'reveal', nodeId });
+      },
+      move(nodeId, direction) {
+        const next = neighbour(layout, nodeId, direction);
+        const card = layout.cards.find((c) => c.id === next);
+        if (!next || !card) {
+          return;
+        }
+        document.querySelector<HTMLElement>(`[data-card-id="${CSS.escape(next)}"]`)?.focus({
+          preventScroll: true,
+        });
+        void flow.setCenter(card.x + card.width / 2, card.y + card.height / 2, {
+          zoom: Math.max(flow.getZoom(), 0.75),
+          duration: matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 150,
+        });
       },
       explain(nodeId: string, path?: boolean) {
         const name = state.nodes.get(nodeId)?.name ?? '';
@@ -76,10 +93,9 @@ function Graph() {
       isPending: (nodeId, relation) => state.pending.has(pendingKey(nodeId, relation)),
       nodeById: (nodeId) => state.nodes.get(nodeId),
     }),
-    [state.pending, state.nodes, state.edges, state.rootId],
+    [state.pending, state.nodes, state.edges, state.rootId, layout, flow],
   );
 
-  const layout = useMemo(() => layoutGraph(state.nodes, [...state.edges.values()]), [state]);
   const onPath = useMemo(
     () => (hovered ? pathThrough(hovered, layout.arrows) : null),
     [hovered, layout],
@@ -163,6 +179,16 @@ function Graph() {
               </span>
             )}
             <SearchBox query={query} onChange={setQuery} matches={matches} />
+            <button
+              type="button"
+              className="icon-btn"
+              title="Copy the graph as a Mermaid diagram (for Markdown files, GitHub and docs)"
+              aria-label="Copy as Mermaid"
+              disabled={!state.rootId}
+              onClick={() => send({ type: 'export', format: 'mermaid' })}
+            >
+              ⤓
+            </button>
             <button
               type="button"
               className="icon-btn"
@@ -491,6 +517,10 @@ function Legend({ onClose }: { onClose: () => void }) {
       <p>
         A dashed arrow is a <b>use</b> (the code refers to it without calling it here) or a type
         relation, labelled <b>extends</b> or <b>implements</b>.
+      </p>
+      <p>
+        Keyboard: Tab to a card, then arrow keys move between cards (→ what it calls, ← what calls
+        it, ↑ ↓ within a column) and Enter opens its code.
       </p>
       <p>
         Hover a card to light up its flow. Click a card to open its code. Library code is hidden

@@ -92,6 +92,8 @@ export const toHost = z.discriminatedUnion('type', [
   }),
   /** The user closed the explanation drawer: stop waiting for the model. */
   z.object({ type: z.literal('cancelExplain') }),
+  /** Copy the graph as Mermaid text. */
+  z.object({ type: z.literal('export'), format: z.literal('mermaid') }),
   z.object({ type: z.literal('back') }),
   z.object({ type: z.literal('forward') }),
   /** The user closed the first-open hint; it is not shown again. */

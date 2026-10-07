@@ -26,6 +26,11 @@
         "command": "prophasis.showFlow",
         "title": "Show Flow",
         "category": "Prophasis"
+      },
+      {
+        "command": "prophasis.copyMermaid",
+        "title": "Copy Graph as Mermaid",
+        "category": "Prophasis"
       }
     ],
     "configuration": {
@@ -71,7 +76,74 @@
           "description": "Most characters of code sent in one Explain request. Longer code is cut to fit."
         }
       }
-    }
+    },
+    "menus": {
+      "editor/context": [
+        {
+          "command": "prophasis.showFlow",
+          "when": "editorHasCallHierarchyProvider",
+          "group": "navigation@9"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "prophasis.copyMermaid",
+          "when": "prophasis.panelOpen"
+        }
+      ]
+    },
+    "keybindings": [
+      {
+        "command": "prophasis.showFlow",
+        "key": "ctrl+shift+alt+f",
+        "mac": "cmd+shift+alt+f",
+        "when": "editorTextFocus"
+      }
+    ],
+    "walkthroughs": [
+      {
+        "id": "start",
+        "title": "Get started with Prophasis",
+        "description": "See how your code connects, as cards and arrows, in a few clicks.",
+        "steps": [
+          {
+            "id": "showFlow",
+            "title": "Show the flow of a function",
+            "description": "Open a TypeScript, JavaScript or Python file and click **Show flow** above any function, method or class. You can also right-click inside one, or press Ctrl+Shift+Alt+F.\n[Show flow at the cursor](command:prophasis.showFlow)",
+            "media": {
+              "markdown": "media/walkthrough/show-flow.md"
+            },
+            "completionEvents": [
+              "onCommand:prophasis.showFlow"
+            ]
+          },
+          {
+            "id": "explore",
+            "title": "Explore in any direction",
+            "description": "Every card has buttons: **Calls →** (what it calls), **← Called by** (what calls it), **Used by**, and on classes **Extends**. Click a card to open its code. Click a lit button again to hide what it showed.",
+            "media": {
+              "markdown": "media/walkthrough/explore.md"
+            }
+          },
+          {
+            "id": "read",
+            "title": "Read the arrows",
+            "description": "Numbers show the order calls are written in the code (not always the order they run). Dashed arrows are uses and type relations. ↻ marks recursion. Press **?** in the panel for the legend.",
+            "media": {
+              "markdown": "media/walkthrough/read.md"
+            }
+          },
+          {
+            "id": "explain",
+            "title": "Explain in plain language (optional)",
+            "description": "Hover a card and click **✦ Explain**, or right-click a card for **Explain path from start to here**. It uses GitHub Copilot through VS Code and asks before sending any code.",
+            "media": {
+              "markdown": "media/walkthrough/explain.md"
+            }
+          }
+        ]
+      }
+    ]
   },
   "scripts": {
     "build": "node esbuild.mjs",

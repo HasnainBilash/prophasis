@@ -300,3 +300,36 @@ export function callPath(
   };
   return search(rootId, targetId) ?? search(targetId, rootId);
 }
+
+export type Direction = 'left' | 'right' | 'up' | 'down';
+
+/**
+ * The card to move keyboard focus to: right goes to the first card this one
+ * points to (lowest arrow number first), left to the first card pointing to
+ * it, up and down to the next card in the same column.
+ */
+export function neighbour(
+  layout: Layout,
+  cardId: string,
+  direction: Direction,
+): string | undefined {
+  const cards = layout.cards.filter((c) => c.node);
+  const card = cards.find((c) => c.id === cardId);
+  if (!card) {
+    return undefined;
+  }
+  const arrows = layout.arrows.filter((a) => !a.toMore && !a.sameCard);
+  const byOrder = (a: Arrow, b: Arrow) => (a.edge.order || Infinity) - (b.edge.order || Infinity);
+  if (direction === 'right') {
+    return arrows.filter((a) => a.source === cardId).sort(byOrder)[0]?.target;
+  }
+  if (direction === 'left') {
+    return arrows.filter((a) => a.target === cardId).sort(byOrder)[0]?.source;
+  }
+  const centre = (c: CardBox) => c.x + c.width / 2;
+  const column = cards
+    .filter((c) => Math.abs(centre(c) - centre(card)) < 1)
+    .sort((a, b) => a.y - b.y);
+  const index = column.findIndex((c) => c.id === cardId);
+  return column[direction === 'up' ? index - 1 : index + 1]?.id;
+}

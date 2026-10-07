@@ -90,6 +90,7 @@ export function activate(context: vscode.ExtensionContext): ProphasisTestApi {
       }
     }),
     panels.onDidRequestRetry(() => vscode.commands.executeCommand(SHOW_FLOW, ...lastArgs)),
+    vscode.commands.registerCommand('prophasis.copyMermaid', () => panels.copyMermaid()),
     vscode.workspace.onDidCloseTextDocument((document) => forgetDocument(document.uri)),
   );
   return { panels, activationMs: performance.now() - activationStarted };

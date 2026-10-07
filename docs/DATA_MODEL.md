@@ -114,7 +114,7 @@ checked with Zod when it arrives, in both directions.
 | `explain` | `nodeId`, optional `pathNodeIds` (start → card, 2 to 30 ids) | Checks Workspace Trust and consent, reads the code, calls the explain provider, sends `explain:result`. |
 | `cancelExplain` | none | The user closed the explanation drawer: stops waiting for the model. |
 | `refresh` | `nodeId` | Rebuilds a stale card. |
-| `export` | `format` (`mermaid`) | Copies the Mermaid text. |
+| `export` | `format` (`mermaid`) | Copies the graph as Mermaid flowchart text to the clipboard (also the command "Prophasis: Copy Graph as Mermaid"). |
 | `back` / `forward` | none | Moves through earlier starting points (up to 20). Each keeps its graph as the user left it; `graph:init` says whether there is somewhere to go (`canGoBack`, `canGoForward`). |
 | `dismissHint` | none | Remembers (in VS Code's per-user extension storage) that the first-open hint was closed. |
 | `retry` | none | Runs the last "Show flow" again (the Retry button on "language server starting" and errors). |

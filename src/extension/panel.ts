@@ -5,6 +5,7 @@ import { CancelledError, QueryTimeoutError } from './engine/queries';
 import type { Explainer } from './explain/explainer';
 import { ExplainError } from './explain/provider';
 import { toHost, type ToHost, type ToPanel } from '../shared/messages';
+import { toMermaid } from '../shared/mermaid';
 import type { GraphStatus } from '../shared/types';
 
 /** Remembers (per user, across sessions) that the first-open hint was closed. */
@@ -108,6 +109,8 @@ export class PanelManager implements vscode.Disposable {
       { enableScripts: true, localResourceRoots: [dist] },
     );
     panel.webview.html = renderHtml(panel.webview, dist);
+    // Lets menus show panel-only commands (Copy Graph as Mermaid) only when they can work.
+    void vscode.commands.executeCommand('setContext', 'prophasis.panelOpen', true);
     panel.webview.onDidReceiveMessage((raw: unknown) => this.receive(raw));
     panel.onDidDispose(() => {
       this.panel = undefined;
@@ -116,6 +119,7 @@ export class PanelManager implements vscode.Disposable {
       this.position = -1;
       this.explaining.abort();
       this.explaining = new AbortController();
+      void vscode.commands.executeCommand('setContext', 'prophasis.panelOpen', false);
       this.closed.fire();
     });
     return panel;
@@ -166,6 +170,9 @@ export class PanelManager implements vscode.Disposable {
       }
       case 'explain':
         void this.explain(message.nodeId, message.pathNodeIds);
+        break;
+      case 'export':
+        void this.copyMermaid();
         break;
       case 'cancelExplain':
         this.explaining.abort();
@@ -274,6 +281,19 @@ export class PanelManager implements vscode.Disposable {
       const text = error instanceof Error ? error.message : String(error);
       this.post({ type: 'explain:result', nodeId, path, title, error: text });
     }
+  }
+
+  /** Copies the current graph as Mermaid text, for Markdown files, GitHub and docs. */
+  async copyMermaid(): Promise<void> {
+    const graph = this.session?.builder?.snapshot();
+    if (!graph) {
+      void vscode.window.showInformationMessage('Prophasis: there is no graph to copy yet.');
+      return;
+    }
+    await vscode.env.clipboard.writeText(toMermaid(graph));
+    void vscode.window.showInformationMessage(
+      `Prophasis: copied ${graph.nodes.length} cards as a Mermaid diagram. Paste it into a Markdown file, a GitHub comment or mermaid.live.`,
+    );
   }
 
   /** Click-to-jump: opens the file and selects the symbol's name. */

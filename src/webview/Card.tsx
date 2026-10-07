@@ -2,7 +2,7 @@ import { Handle, Position, type Node, type NodeProps } from '@xyflow/react';
 import type { KeyboardEvent, MouseEvent } from 'react';
 import type { FlowNode, MemberRow, Relation } from '../shared/types';
 import { displayName, kindInfo, useActions } from './actions';
-import { handle } from './layout';
+import { handle, type Direction } from './layout';
 
 /** `dimmed`: another card is hovered and this one is not on its path. */
 export type CardNode = Node<{ node: FlowNode; isRoot: boolean; dimmed: boolean }, 'card'>;
@@ -15,8 +15,19 @@ export function Card({ data }: NodeProps<CardNode>) {
 
   const reveal = () => actions.reveal(node.id);
   const onKey = (event: KeyboardEvent) => {
+    // Only when the card itself has focus, not one of its buttons.
+    if (event.target !== event.currentTarget) {
+      return;
+    }
     if (event.key === 'Enter') {
       reveal();
+      return;
+    }
+    const direction = arrowKeys[event.key];
+    if (direction) {
+      event.preventDefault();
+      event.stopPropagation();
+      actions.move(node.id, direction);
     }
   };
 
@@ -26,6 +37,7 @@ export function Card({ data }: NodeProps<CardNode>) {
       onClick={reveal}
       onKeyDown={onKey}
       tabIndex={0}
+      data-card-id={node.id}
       role="group"
       aria-label={`${kind.label} ${node.name}, ${node.filePath} line ${node.line}`}
       title={`Open ${node.name} in the editor`}
@@ -106,6 +118,13 @@ export function Card({ data }: NodeProps<CardNode>) {
     </div>
   );
 }
+
+const arrowKeys: Record<string, Direction | undefined> = {
+  ArrowLeft: 'left',
+  ArrowRight: 'right',
+  ArrowUp: 'up',
+  ArrowDown: 'down',
+};
 
 function Chip(props: { node: FlowNode; relation: Relation; label: string; tip: string }) {
   const { node, relation } = props;
