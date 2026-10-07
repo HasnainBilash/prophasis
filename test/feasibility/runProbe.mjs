@@ -3,7 +3,7 @@
 // Usage: npm run probe            (latest stable VS Code)
 //        PROBE_VSCODE=1.90.0 npm run probe   (a specific version)
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
@@ -29,11 +29,12 @@ if (withPython) {
   for (const id of ['ms-python.python', 'ms-python.vscode-pylance']) {
     const result = spawnSync(cli, [...cliArgs, '--install-extension', id], {
       encoding: 'utf8',
-      stdio: 'inherit',
       shell: process.platform === 'win32',
     });
+    process.stdout.write(result.stdout ?? '');
+    process.stderr.write(result.stderr ?? '');
     if (result.status !== 0) {
-      throw new Error(`Installing ${id} failed with exit code ${result.status}`);
+      fail(`Installing ${id} failed (exit ${result.status}): ${result.stderr || result.error}`);
     }
   }
 }
@@ -69,28 +70,50 @@ writeFileSync(
 // and would start the test copy of VS Code as plain Node instead of the editor.
 delete process.env.ELECTRON_RUN_AS_NODE;
 
-await runTests({
-  vscodeExecutablePath,
-  extensionDevelopmentPath: root,
-  extensionTestsPath: resolve(root, 'dist', `${suite}.js`),
-  extensionTestsEnv: {
-    PROBE_OUT: out,
-    SCREENSHOT_DIR: resolve(root, '.vscode-test', 'screenshots'),
-  },
-  launchArgs: [
-    resolve(root, 'test', 'fixtures', 'fixtures.code-workspace'),
-    `--extensions-dir=${extensionsDir}`,
-    `--user-data-dir=${userDataDir}`,
-    '--disable-workspace-trust',
-    '--skip-welcome',
-    '--skip-release-notes',
-    // The Python Environments extension closed the test window on a machine with no
-    // Python installed. Code analysis doesn't need it, so it is off by default.
-    ...(process.env.PROBE_DISABLE ?? 'ms-python.vscode-python-envs')
-      .split(',')
-      .filter(Boolean)
-      .map((id) => `--disable-extension=${id}`),
-  ],
-});
+try {
+  await runTests({
+    vscodeExecutablePath,
+    extensionDevelopmentPath: root,
+    extensionTestsPath: resolve(root, 'dist', `${suite}.js`),
+    extensionTestsEnv: {
+      PROBE_OUT: out,
+      SCREENSHOT_DIR: resolve(root, '.vscode-test', 'screenshots'),
+    },
+    launchArgs: [
+      resolve(root, 'test', 'fixtures', 'fixtures.code-workspace'),
+      `--extensions-dir=${extensionsDir}`,
+      `--user-data-dir=${userDataDir}`,
+      '--disable-workspace-trust',
+      '--skip-welcome',
+      '--skip-release-notes',
+      // The Python Environments extension closed the test window on a machine with no
+      // Python installed. Code analysis doesn't need it, so it is off by default.
+      ...(process.env.PROBE_DISABLE ?? 'ms-python.vscode-python-envs')
+        .split(',')
+        .filter(Boolean)
+        .map((id) => `--disable-extension=${id}`),
+    ],
+  });
+} catch (error) {
+  // The check writes its list of differences before failing; show it.
+  const details = existsSync(out) ? JSON.parse(readFileSync(out, 'utf8')).failures : undefined;
+  const why = details
+    ? `\n${details.join('\n')}`
+    : ' (no results written: VS Code may not have started)';
+  fail(`${suite} failed: ${String(error)}${why}`);
+}
 
 console.log(`Probe results written to ${out}`);
+
+/**
+ * Stops with an error. On GitHub Actions the message also becomes an
+ * annotation, which can be read without access to the job log.
+ */
+function fail(message) {
+  if (process.env.GITHUB_ACTIONS) {
+    const encoded = message.replace(/%/g, '%25').replace(/\r?\n/g, '%0A');
+    console.log(`::error title=${suite}::${encoded}`);
+  }
+  console.error(message);
+  process.exit(1);
+}

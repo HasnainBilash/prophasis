@@ -39,6 +39,10 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      # Ubuntu 24.04 blocks the sandbox Electron apps (VS Code) use; allow it
+      # on this throwaway runner so the test copy of VS Code can start.
+      - name: Allow the Electron sandbox
+        run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
       - name: Engine check (TypeScript, JavaScript, Python)
         run: xvfb-run -a npm run check:engine
       - name: Panel check
