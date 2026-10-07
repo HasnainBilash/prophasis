@@ -62,8 +62,8 @@ dependency. I believe they are permissive, but that is not yet confirmed.
 
 **Still not verified:**
 
-- All performance numbers in section 5. They are targets, not measurements
-  (the fixture calls below are tiny and say nothing about large projects).
+- Performance on very large projects (tens of thousands of functions). Section 5
+  has measurements on 1,000 functions and two real projects.
 - The current Marketplace publishing steps (they change; I'll check when we get there).
 - Behaviour in VS Code on the web, Remote-SSH, WSL and Dev Containers.
 - Languages other than TypeScript, JavaScript and Python.
@@ -196,18 +196,34 @@ Design rules for the code:
 
 ---
 
-## 5. Performance targets (to be measured, not yet true)
+## 5. Performance targets and measurements
 
-| Action | Target |
-|---|---|
-| Extension activation | under 200 ms, no workspace scan |
-| First open on a project with about 1,000 functions, language server ready | under 1.5 s |
-| Expanding one card | under 1 s typical |
-| Layout of 150 cards | under 300 ms |
-| Large fan-out (a function with 100 callees) | grouped into one "N more" card, not 100 cards |
+Measured in Phase 4 (2026-10-07) on a Windows 11 laptop, VS Code 1.140, inside a
+real VS Code (`npm run check:perf`, `npm run check:real`). Times are from the
+click to a finished graph in the extension host, with the language server
+ready; drawing in the panel is not included except the layout row. No
+optimisation was needed, so there is no "before and after".
 
-Phase 4 measures these on a generated project and on a real open-source
-project, before and after any optimisation.
+| Action | Target | Generated, 1,000 functions | immer (TypeScript) | requests (Python) |
+|---|---|---|---|---|
+| Extension activation (our `activate` code only) | under 200 ms | 0.9 ms | 0.5 ms | 1 ms |
+| First open, language server ready | under 1.5 s | 39 ms median, 695 ms worst | 13 ms median, 85 ms worst | 157 ms median, 247 ms worst |
+| Expanding one card | under 1 s typical | 12 ms median, 394 ms worst | 3 ms median, 15 ms worst | 34 ms median, 138 ms worst |
+| Layout of 150 cards | under 300 ms | 106 ms (unit test, Node) | | |
+| Fan-out of 100 callees | one "N more" card | 12 cards + "+88 more" | | `resolve_redirects`: 12 + "+3 more" |
+| Language server ready after opening the first file | (not a target) | 3.0 s | 2.8 s | 4.7 s |
+
+Notes:
+
+- Activation time is our own code. VS Code also loads the bundle; that is
+  part of VS Code's own measurement (Developer: Show Running Extensions).
+- The "worst" first open is the first one after the language server became
+  ready; later ones are faster.
+- The real projects were checked by hand against their source: immer
+  `processResult` and `produce`, requests `merge_setting`. Every call
+  shown is in the source, in reading order, on the right lines. Calls through
+  stored callbacks (`scope.patchListener_!()`) and dynamic calls
+  (`dict_class(...)`) are not shown, as section 9 says.
 
 ---
 
@@ -284,11 +300,11 @@ build time.** Everything after that adds depth and polish.
 - [x] Integration tests on the fixtures
 
 ### Phase 4: More relationships and scale (about 4 hours)
-- [ ] Used by (references mapped to the enclosing symbol)
-- [ ] Extends / implements, only for languages where Phase 1 showed it works
-- [ ] Search, Back / Forward history
-- [ ] "N more not shown" card and large fan-out grouping
-- [ ] Measure the section 5 targets on a generated and a real project; fix what misses
+- [x] Used by (references mapped to the enclosing symbol)
+- [x] Extends / implements, only for languages where Phase 1 showed it works
+- [x] Search, Back / Forward history
+- [x] "N more not shown" card and large fan-out grouping
+- [x] Measure the section 5 targets on a generated and a real project; fix what misses
 
 ### Phase 5: Explanations (about 3 hours)
 - [ ] Doc comments on cards
@@ -383,6 +399,9 @@ estimates; Phase 1 will show how far off they are.
 | 2026-10-07 | Data model clarifications found while building the engine: member rows can be `field`; `hiddenMembers` on class cards; `graph:patch` gains `updateNodes`; `calledBy` edges defined (caller → callee, order 0, upgraded to `calls` later). | The frozen model had gaps: rows listed fields but `NodeKind` had no field, and a patch had no way to change an existing card. | None (part of Phase 2) | Within the standing OK for small corrections; flagged in the Phase 2 report |
 | 2026-10-07 | Messages: `retry` (panel → host) and `expand:done` (host → panel) added; the status travels inside `graph:init`. | Needed for the Retry button and for per-card loading spinners and errors. | None (part of Phase 3) | Small correction; flagged in the Phase 3 Part A report |
 | 2026-10-07 | `dismissHint` message and `showHint` flag for the first-open tip; light-theme kind colours one shade deeper (BRIEF section 10). | The tip must show once per user, not per panel. The first light palette failed the WCAG contrast check (white badge numbers on sky, amber, emerald and orange). | None (part of Phase 3) | Standing OK for styling and small corrections |
+| 2026-10-07 | Phase 4 additions to the data model: `FlowNode.more` ("+N more" counts by relation; at most 12 new cards per expansion), `expand` gains `all`, `back` / `forward` messages with `canGoBack` / `canGoForward` in `graph:init`. | Needed for fan-out grouping and history. | None (part of Phase 4) | Standing OK for small corrections |
+| 2026-10-07 | Class properties and fields holding a function (`produce = (base) => …`) are starting points and method rows; calls to members a file doesn't list (a method in a type alias) are named after the member. | Found on the real immer project in Phase 4. | About 30 min, inside Phase 4 | Standing OK for fixes |
+| 2026-10-07 | Arrow numbers follow where each called *name* is written (the end of the callee expression), not where the expression starts. | Chained calls like `getPlugin(x).generate()` were numbered in the wrong order; this also corrected one Phase 2 expectation (`new Circle(r).describe()`: Circle first). | None | Standing OK for fixes |
 
 ---
 

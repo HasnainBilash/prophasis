@@ -7,6 +7,8 @@ import type { GraphStatus } from '../shared/types';
 
 /** Remembers (per user, across sessions) that the first-open hint was closed. */
 const HINT_SEEN = 'prophasis.hintSeen';
+/** Earlier starting points kept for Back. */
+const MAX_HISTORY = 20;
 
 /** What the panel currently shows: one starting point and the graph grown from it. */
 export interface Session {
@@ -24,6 +26,8 @@ export interface Session {
 export class PanelManager implements vscode.Disposable {
   private panel: vscode.WebviewPanel | undefined;
   private session: Session | undefined;
+  private history: Session[] = [];
+  private position = -1;
   // Expansions run one at a time, so two clicks can't change the graph at once.
   private queue: Promise<void> = Promise.resolve();
   private readyCount = 0;
@@ -39,7 +43,36 @@ export class PanelManager implements vscode.Disposable {
     private readonly memory: vscode.Memento,
   ) {}
 
+  /** Shows a new starting point. It goes on the Back history; anything "forward" is dropped. */
   show(session: Session): void {
+    // A failed start (an error or "still starting") replaces the newest entry
+    // instead of filling the history with retries.
+    const newest = this.history[this.position];
+    // Showing the same starting point again also replaces it, so Back never
+    // steps through duplicates.
+    const sameStart =
+      newest?.builder !== undefined &&
+      newest.builder.snapshot().rootId === session.builder?.snapshot().rootId;
+    const replace = newest !== undefined && (newest.builder === undefined || sameStart);
+    this.history = this.history.slice(0, replace ? this.position : this.position + 1);
+    this.history.push(session);
+    if (this.history.length > MAX_HISTORY) {
+      this.history.shift();
+    }
+    this.position = this.history.length - 1;
+    this.display(session);
+  }
+
+  /** Moves through earlier starting points; each keeps its graph as the user left it. */
+  private go(step: -1 | 1): void {
+    const next = this.history[this.position + step];
+    if (next) {
+      this.position += step;
+      this.display(next);
+    }
+  }
+
+  private display(session: Session): void {
     this.session = session;
     this.queue = Promise.resolve();
     if (!this.panel) {
@@ -72,6 +105,8 @@ export class PanelManager implements vscode.Disposable {
     panel.onDidDispose(() => {
       this.panel = undefined;
       this.session = undefined;
+      this.history = [];
+      this.position = -1;
       this.closed.fire();
     });
     return panel;
@@ -103,7 +138,9 @@ export class PanelManager implements vscode.Disposable {
         break;
       case 'expand': {
         const session = this.session;
-        this.queue = this.queue.then(() => this.expand(session, message.nodeId, message.relation));
+        this.queue = this.queue.then(() =>
+          this.expand(session, message.nodeId, message.relation, message.all ?? false),
+        );
         break;
       }
       case 'collapse': {
@@ -118,6 +155,12 @@ export class PanelManager implements vscode.Disposable {
         });
         break;
       }
+      case 'back':
+        this.go(-1);
+        break;
+      case 'forward':
+        this.go(1);
+        break;
       case 'dismissHint':
         void this.memory.update(HINT_SEEN, true);
         break;
@@ -135,6 +178,8 @@ export class PanelManager implements vscode.Disposable {
       message: session.message,
       graph: session.builder?.snapshot(),
       showHint: session.builder !== undefined && !this.memory.get<boolean>(HINT_SEEN, false),
+      canGoBack: this.position > 0,
+      canGoForward: this.position < this.history.length - 1,
     });
   }
 
@@ -152,13 +197,14 @@ export class PanelManager implements vscode.Disposable {
     session: Session | undefined,
     nodeId: string,
     relation: Extract<ToHost, { type: 'expand' }>['relation'],
+    all: boolean,
   ): Promise<void> {
     // The session may have been replaced while this request waited its turn.
     if (!session?.builder || session !== this.session) {
       return;
     }
     try {
-      const patch = await session.builder.expand(nodeId, relation);
+      const patch = await session.builder.expand(nodeId, relation, all);
       if (session === this.session) {
         this.post({ type: 'graph:patch', patch });
         this.post({ type: 'expand:done', nodeId, relation });

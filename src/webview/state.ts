@@ -18,6 +18,8 @@ export interface PanelState {
   revision: number;
   /** The one-time "how to explore" hint is showing. */
   showHint: boolean;
+  canGoBack: boolean;
+  canGoForward: boolean;
 }
 
 export type Action =
@@ -35,6 +37,8 @@ export const initialState: PanelState = {
   focusIds: [],
   revision: 0,
   showHint: false,
+  canGoBack: false,
+  canGoForward: false,
 };
 
 export const pendingKey = (nodeId: string, relation: Relation) => `${nodeId}|${relation}`;
@@ -71,6 +75,8 @@ function applyMessage(state: PanelState, message: ToPanel): PanelState {
         focusIds: graph ? [graph.rootId] : [],
         revision: state.revision + 1,
         showHint: message.showHint ?? false,
+        canGoBack: message.canGoBack ?? false,
+        canGoForward: message.canGoForward ?? false,
       };
     }
     case 'graph:patch': {

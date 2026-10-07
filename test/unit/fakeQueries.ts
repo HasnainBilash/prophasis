@@ -5,6 +5,7 @@ import type {
   CallLink,
   DocSymbol,
   LanguageQueries,
+  Place,
   Pos,
   Span,
 } from '../../src/extension/engine/queries';
@@ -20,6 +21,12 @@ export interface FakeProject {
   files: Record<string, FakeFile>;
   /** Outgoing calls by caller name: [callee name, call positions]. */
   calls: Record<string, [string, Pos[]][]>;
+  /** References by symbol name: [file uri, position]. */
+  references?: Record<string, [string, Pos][]>;
+  /** Parent types by type name. */
+  parents?: Record<string, string[]>;
+  /** False imitates TypeScript: no type hierarchy, children only through implementations. */
+  typeHierarchy?: boolean;
 }
 
 export function pos(line: number, character: number): Pos {
@@ -82,6 +89,45 @@ export class FakeQueries implements LanguageQueries {
       }
     }
     return links;
+  }
+
+  async references(uri: string, at: Pos): Promise<Place[]> {
+    const symbol = await this.prepareCallHierarchy(uri, at);
+    const name = symbol[0]?.name ?? '';
+    return (this.project.references?.[name] ?? []).map(([file, p]) => ({
+      uri: file,
+      range: { start: p, end: pos(p.line, p.character + name.length) },
+    }));
+  }
+
+  async implementations(uri: string, at: Pos): Promise<Place[]> {
+    const [self] = await this.prepareCallHierarchy(uri, at);
+    if (!self) {
+      return [];
+    }
+    // Like TypeScript: the type itself plus everything that extends it.
+    return [self, ...this.children(self.name)].map((item) => ({
+      uri: item.uri,
+      range: item.selectionRange,
+    }));
+  }
+
+  async prepareTypeHierarchy(uri: string, at: Pos): Promise<CallItem[]> {
+    return this.project.typeHierarchy === false ? [] : this.prepareCallHierarchy(uri, at);
+  }
+
+  async supertypes(item: CallItem): Promise<CallItem[]> {
+    return (this.project.parents?.[item.name] ?? []).map((name) => this.byName(name));
+  }
+
+  async subtypes(item: CallItem): Promise<CallItem[]> {
+    return this.children(item.name);
+  }
+
+  private children(name: string): CallItem[] {
+    return Object.entries(this.project.parents ?? {})
+      .filter(([, parents]) => parents.includes(name))
+      .map(([child]) => this.byName(child));
   }
 
   async lineText(uri: string, line: number): Promise<string> {

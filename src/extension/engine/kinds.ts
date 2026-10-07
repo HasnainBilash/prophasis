@@ -20,9 +20,17 @@ export function isClassLike(kind: NodeKind): boolean {
   return CLASS_LIKE.includes(kind);
 }
 
-/** Variables and constants can hold a function (`const f = () => …`). */
+/**
+ * Variables, constants and class properties can hold a function:
+ * `const f = () => …`, or `produce = (base) => …` inside a class.
+ */
 export function isValueKind(symbolKind: string): boolean {
-  return symbolKind === 'Variable' || symbolKind === 'Constant';
+  return (
+    symbolKind === 'Variable' ||
+    symbolKind === 'Constant' ||
+    symbolKind === 'Property' ||
+    symbolKind === 'Field'
+  );
 }
 
 // Matches what follows a variable's name when its value is a function:

@@ -1,5 +1,6 @@
 import picomatch from 'picomatch';
 import type {
+  EdgeKind,
   FlowEdge,
   FlowGraph,
   FlowNode,
@@ -33,6 +34,9 @@ export const DEFAULT_OPTIONS: BuilderOptions = {
 
 const ZERO: Pos = { line: 0, character: 0 };
 
+/** New cards one expansion may add before the rest go into a "+N more" card. */
+export const FAN_OUT = 12;
+
 /** Rows shown on a class card before "+N more". */
 export const MAX_MEMBER_ROWS = 40;
 /** Signatures are cut to one line of this length. */
@@ -54,6 +58,15 @@ interface Location {
 interface Resolved {
   node: FlowNode;
   location: Location;
+}
+
+/** A symbol connected to the card being expanded, and how. */
+interface Target {
+  other: Resolved;
+  /** 'out': the arrow goes from the expanded card to `other`. */
+  direction: 'out' | 'in';
+  kind: EdgeKind;
+  lines: number[];
 }
 
 // Shared by every builder in the window. Keyed by node id, relation and file
@@ -124,8 +137,10 @@ export class GraphBuilder {
   /**
    * Loads one relationship of a card, one level deep. A member row of a class
    * card can be expanded too: it becomes its own card inside the class.
+   * At most FAN_OUT new cards are added; the rest are counted in `more` and
+   * added when `all` is true (the "+N more" card).
    */
-  async expand(nodeId: string, relation: Relation): Promise<GraphPatch> {
+  async expand(nodeId: string, relation: Relation, all = false): Promise<GraphPatch> {
     const patch: GraphPatch = {
       addNodes: [],
       addEdges: [],
@@ -137,62 +152,67 @@ export class GraphBuilder {
     if (!node) {
       return patch;
     }
-    if (relation !== 'calls' && relation !== 'calledBy') {
-      // Contains is shown as member rows from the start; used by and extends come in Phase 4.
-      return patch;
+
+    let targets: Target[] = [];
+    if (relation === 'calls' || relation === 'calledBy') {
+      targets = await this.callTargets(node, relation);
+    } else if (relation === 'usedBy') {
+      targets = await this.usageTargets(node);
+    } else if (relation === 'extends') {
+      targets = await this.typeTargets(node);
     }
-
-    const item = await this.itemFor(nodeId);
-    const links = item ? await this.callLinks(node, item, relation) : [];
-
-    // Outgoing call positions are in the caller's file, so they give the order
-    // calls appear in the code. Duplicates (seen in Phase 1) are removed first.
-    const prepared = links
-      .map((link) => {
-        const ranges = uniqueSpans(link.ranges);
-        return { link, ranges, first: ranges[0]?.start };
-      })
-      .filter((entry) => entry.first !== undefined)
-      .sort((a, b) => comparePos(a.first ?? ZERO, b.first ?? ZERO));
-
-    const resolved = await Promise.all(prepared.map((entry) => this.resolveItem(entry.link.item)));
+    // "contains" is shown as member rows from the start.
 
     let order = 0;
+    let added = 0;
+    let more = 0;
     const touched = new Set<FlowNode>();
-    for (const [index, entry] of prepared.entries()) {
-      const other = resolved[index];
-      if (!other || !this.isVisible(other.node)) {
+    for (const target of targets) {
+      const other = target.other;
+      if (!this.isVisible(other.node)) {
         continue;
       }
       if (other.node.id === node.id) {
-        node.isRecursive = true;
-        touched.add(node);
+        if (relation === 'calls' || relation === 'calledBy') {
+          node.isRecursive = true;
+          touched.add(node);
+        }
         continue;
       }
 
-      let target = this.nodes.get(other.node.id);
-      if (!target) {
+      let card = this.nodes.get(other.node.id);
+      if (!card) {
+        if (!all && added >= FAN_OUT) {
+          more++;
+          continue;
+        }
         if (this.nodes.size >= this.options.maxCards) {
           this.hiddenCount++;
           continue;
         }
-        target = other.node;
-        this.addNode(target, other.location);
-        patch.addNodes.push(target);
+        card = other.node;
+        this.addNode(card, other.location);
+        patch.addNodes.push(card);
+        added++;
       }
 
-      const fromId = relation === 'calls' ? node.id : target.id;
-      const toId = relation === 'calls' ? target.id : node.id;
-      const callLines = [...new Set(entry.ranges.map((r) => r.start.line + 1))];
-      const edge = this.upsertCallEdge(fromId, toId, relation, ++order, callLines);
-      if (edge) {
-        patch.addEdges.push(edge);
-        if (this.reaches(toId, fromId)) {
-          const closing = this.nodes.get(toId);
-          if (closing && !closing.isRecursive) {
-            closing.isRecursive = true;
-            touched.add(closing);
-          }
+      const outward = target.direction === 'out';
+      const fromId = outward ? node.id : card.id;
+      const toId = outward ? card.id : node.id;
+      const edge =
+        target.kind === 'calls' || target.kind === 'calledBy'
+          ? this.upsertCallEdge(fromId, toId, target.kind, ++order, target.lines)
+          : this.upsertEdge(fromId, toId, target.kind, target.lines);
+      if (!edge) {
+        continue;
+      }
+      patch.addEdges.push(edge);
+      const isCall = edge.kind === 'calls' || edge.kind === 'calledBy';
+      if (isCall && this.reaches(toId, fromId)) {
+        const closing = this.nodes.get(toId);
+        if (closing && !closing.isRecursive) {
+          closing.isRecursive = true;
+          touched.add(closing);
         }
       }
     }
@@ -200,10 +220,135 @@ export class GraphBuilder {
     if (!node.expanded.includes(relation)) {
       node.expanded.push(relation);
     }
+    const counts: Partial<Record<Relation, number>> = Object.fromEntries(
+      Object.entries(node.more ?? {}).filter(([key]) => key !== relation),
+    );
+    if (more > 0) {
+      counts[relation] = more;
+    }
+    node.more = Object.keys(counts).length > 0 ? counts : undefined;
     touched.add(node);
     patch.updateNodes = [...touched].filter((n) => !patch.addNodes.includes(n));
     patch.hiddenCount = this.hiddenCount;
     return patch;
+  }
+
+  /** Calls or callers, in the order the calls are written in the caller. */
+  private async callTargets(node: FlowNode, relation: 'calls' | 'calledBy'): Promise<Target[]> {
+    const item = await this.itemFor(node.id);
+    const links = item ? await this.callLinks(node, item, relation) : [];
+    // Outgoing call positions are in the caller's file, so they give the order
+    // calls appear in the code. Duplicates (seen in Phase 1) are removed first.
+    const prepared = links
+      .map((link) => {
+        const ranges = uniqueSpans(link.ranges);
+        // A call's position is its callee expression (`this.save`,
+        // `getPlugin(x).generate`), so where it ends is where the called name is
+        // written: that gives reading order, also for chained and nested calls.
+        const first = ranges.map((r) => r.end).sort(comparePos)[0];
+        return { link, ranges, first };
+      })
+      .filter((entry) => entry.first !== undefined)
+      .sort((a, b) => comparePos(a.first ?? ZERO, b.first ?? ZERO));
+    const resolved = await Promise.all(prepared.map((entry) => this.resolveItem(entry.link.item)));
+    const targets: Target[] = [];
+    for (const [index, entry] of prepared.entries()) {
+      const other = resolved[index];
+      if (other) {
+        targets.push({
+          other,
+          direction: relation === 'calls' ? 'out' : 'in',
+          kind: relation,
+          lines: [...new Set(entry.ranges.map((r) => r.start.line + 1))],
+        });
+      }
+    }
+    return targets;
+  }
+
+  /**
+   * Places that reference the symbol, grouped by the function, method or class
+   * they are written in. References outside any of those (imports, top-level
+   * code) have no card to belong to and are left out.
+   */
+  private async usageTargets(node: FlowNode): Promise<Target[]> {
+    const location = this.locations.get(node.id);
+    if (!location) {
+      return [];
+    }
+    const places = await this.queries.references(location.uri, location.pos);
+    const byUser = new Map<string, { chain: DocSymbol[]; uri: string; lines: Set<number> }>();
+    for (const place of places) {
+      const isDeclaration =
+        place.uri === location.uri && comparePos(place.range.start, location.pos) === 0;
+      if (isDeclaration || !this.isVisiblePath(place.uri)) {
+        continue;
+      }
+      const symbols = await this.symbolsOf(place.uri);
+      const chain = await this.startChainAt(place.uri, symbols, place.range.start);
+      const user = chain?.[chain.length - 1];
+      if (!chain || !user) {
+        continue;
+      }
+      const at = user.selectionRange.start;
+      const key = place.uri + '#' + at.line + ':' + at.character;
+      const entry = byUser.get(key) ?? { chain, uri: place.uri, lines: new Set<number>() };
+      entry.lines.add(place.range.start.line + 1);
+      byUser.set(key, entry);
+    }
+    const targets: Target[] = [];
+    for (const { chain, uri, lines } of byUser.values()) {
+      const other = await this.resolveChain(uri, chain);
+      const sorted = [...lines].sort((a, b) => a - b);
+      targets.push({ other, direction: 'in', kind: 'usedBy', lines: sorted });
+    }
+    return targets;
+  }
+
+  /**
+   * Parent and child types. Where the language has a type hierarchy (Python),
+   * both directions come from it; otherwise (TypeScript, JavaScript) only
+   * children are known, from the implementation provider.
+   */
+  private async typeTargets(node: FlowNode): Promise<Target[]> {
+    const location = this.locations.get(node.id);
+    if (!location || !isClassLike(node.kind)) {
+      return [];
+    }
+    const kindFor = (parent: NodeKind): EdgeKind =>
+      parent === 'interface' ? 'implements' : 'extends';
+    const targets: Target[] = [];
+    const [item] = await this.queries.prepareTypeHierarchy(location.uri, location.pos);
+    if (item) {
+      for (const parent of await this.queries.supertypes(item)) {
+        const other = await this.resolveItem(parent);
+        if (other) {
+          targets.push({ other, direction: 'out', kind: kindFor(other.node.kind), lines: [] });
+        }
+      }
+      for (const child of await this.queries.subtypes(item)) {
+        const other = await this.resolveItem(child);
+        if (other) {
+          targets.push({ other, direction: 'in', kind: kindFor(node.kind), lines: [] });
+        }
+      }
+      return targets;
+    }
+    for (const place of await this.queries.implementations(location.uri, location.pos)) {
+      if (!this.isVisiblePath(place.uri)) {
+        continue;
+      }
+      const chain = chainAt(await this.symbolsOf(place.uri), place.range.start);
+      if (!chain) {
+        continue;
+      }
+      const other = await this.resolveChain(place.uri, chain);
+      // The implementations of a type include the type itself; expand() skips it.
+      if (isClassLike(other.node.kind)) {
+        targets.push({ other, direction: 'in', kind: kindFor(node.kind), lines: [] });
+      }
+    }
+    return targets;
   }
 
   /**
@@ -224,22 +369,23 @@ export class GraphBuilder {
       return patch;
     }
     node.expanded = node.expanded.filter((r) => r !== relation);
+    if (node.more) {
+      const counts = Object.entries(node.more).filter(([key]) => key !== relation);
+      node.more = counts.length > 0 ? Object.fromEntries(counts) : undefined;
+    }
     patch.updateNodes.push(node);
 
     for (const edge of [...this.edges.values()]) {
-      if (edge.kind !== 'calls' && edge.kind !== 'calledBy') {
+      if (!this.belongsTo(edge, nodeId, relation)) {
         continue;
       }
-      const isOwn =
-        (relation === 'calls' && edge.fromId === nodeId && edge.kind === 'calls') ||
-        (relation === 'calledBy' && edge.toId === nodeId);
-      if (!isOwn) {
-        continue;
-      }
-      const otherId = relation === 'calls' ? edge.toId : edge.fromId;
-      const otherNeeds = relation === 'calls' ? 'calledBy' : 'calls';
-      if (this.nodes.get(otherId)?.expanded.includes(otherNeeds)) {
-        continue;
+      // A call arrow is also accounted for by the other card's own expansion.
+      if (edge.kind === 'calls' || edge.kind === 'calledBy') {
+        const otherId = relation === 'calls' ? edge.toId : edge.fromId;
+        const otherNeeds = relation === 'calls' ? 'calledBy' : 'calls';
+        if (this.nodes.get(otherId)?.expanded.includes(otherNeeds)) {
+          continue;
+        }
       }
       this.edges.delete(edge.id);
       patch.removeIds.push(edge.id);
@@ -335,6 +481,41 @@ export class GraphBuilder {
     return edge;
   }
 
+  /** Whether an arrow was shown by expanding `relation` on the card `nodeId`. */
+  private belongsTo(edge: FlowEdge, nodeId: string, relation: Relation): boolean {
+    switch (relation) {
+      case 'calls':
+        return edge.kind === 'calls' && edge.fromId === nodeId;
+      case 'calledBy':
+        return (edge.kind === 'calls' || edge.kind === 'calledBy') && edge.toId === nodeId;
+      case 'usedBy':
+        return edge.kind === 'usedBy' && edge.toId === nodeId;
+      case 'extends':
+        return (
+          (edge.kind === 'extends' || edge.kind === 'implements') &&
+          (edge.fromId === nodeId || edge.toId === nodeId)
+        );
+      default:
+        return false;
+    }
+  }
+
+  /** Edges other than calls: one per pair and kind, never numbered. */
+  private upsertEdge(
+    fromId: string,
+    toId: string,
+    kind: EdgeKind,
+    lines: number[],
+  ): FlowEdge | undefined {
+    const id = `${fromId}->${toId}#${kind}`;
+    if (this.edges.has(id)) {
+      return undefined;
+    }
+    const edge: FlowEdge = { id, fromId, toId, kind, order: 0, callLines: lines };
+    this.edges.set(id, edge);
+    return edge;
+  }
+
   /** Whether `toId` can be reached from `fromId` by following call arrows. */
   private reaches(fromId: string, toId: string): boolean {
     const seen = new Set<string>([fromId]);
@@ -367,6 +548,15 @@ export class GraphBuilder {
     if (!this.locations.has(node.id) || location.item) {
       this.locations.set(node.id, location);
     }
+  }
+
+  /** Whether a file's symbols may appear, checked before reading it (skips library files). */
+  private isVisiblePath(uri: string): boolean {
+    const path = this.queries.workspacePath(uri);
+    if (path === undefined) {
+      return this.options.showExternalCode;
+    }
+    return !this.isExcluded(path);
   }
 
   private isVisible(node: FlowNode): boolean {
@@ -520,6 +710,33 @@ export class GraphBuilder {
         location: { uri: item.uri, pos: item.selectionRange.start, item },
       };
     }
+    const innermost = chain[chain.length - 1];
+    if (innermost && !containsPos(innermost.selectionRange, item.selectionRange.start)) {
+      // The target is a member the file's symbols don't list (for example a
+      // method declared in a type alias). Name the card after the target, not
+      // after the type around it, and keep that type as its parent.
+      const node = this.bareNode(item, external);
+      node.signature = oneLine(
+        await this.queries.lineText(item.uri, item.selectionRange.start.line),
+      );
+      if (node.kind === 'function') {
+        node.kind = 'method';
+      }
+      const owner = chain.filter((s) => toNodeKind(s.kind) !== undefined || s === innermost);
+      node.parentId = makeId(
+        item.uri,
+        toNodeKind(innermost.kind) ?? 'interface',
+        owner.map((s) => s.name).join('.'),
+        innermost.selectionRange.start,
+      );
+      node.id = makeId(
+        item.uri,
+        node.kind,
+        `${owner.map((s) => s.name).join('.')}.${item.name}`,
+        item.selectionRange.start,
+      );
+      return { node, location: { uri: item.uri, pos: item.selectionRange.start, item } };
+    }
     const resolved = await this.resolveChain(item.uri, chain);
     resolved.location.item = item;
     return resolved;
@@ -582,16 +799,25 @@ export class GraphBuilder {
       );
     }
     if (isClassLike(kind)) {
-      this.addMembers(uri, node, symbol, qualified);
+      await this.addMembers(uri, node, symbol, qualified);
     }
     return { node, location: { uri, pos } };
   }
 
   /** Fills a class card's rows and remembers where each member is, so it can be expanded later. */
-  private addMembers(uri: string, node: FlowNode, symbol: DocSymbol, qualified: string): void {
+  private async addMembers(
+    uri: string,
+    node: FlowNode,
+    symbol: DocSymbol,
+    qualified: string,
+  ): Promise<void> {
     const rows: MemberRow[] = [];
     for (const child of symbol.children) {
-      const kind = memberKind(child);
+      let kind = memberKind(child);
+      // A property holding an arrow function is a method in all but syntax.
+      if (kind === 'field' && isValueKind(child.kind) && (await this.holdsFunction(uri, child))) {
+        kind = 'method';
+      }
       if (!kind || isAnonymousCallback(child.name)) {
         continue;
       }

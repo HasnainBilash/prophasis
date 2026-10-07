@@ -315,3 +315,47 @@ describe('collapse', () => {
     expect(builder.snapshot().edges.map((e) => e.order)).toEqual([1, 2, 3]);
   });
 });
+
+describe('call order', () => {
+  it('follows where each called name is written, also in chained calls', async () => {
+    const F = `${WORKSPACE}chain.ts`;
+    const project: FakeProject = {
+      files: {
+        [F]: {
+          lines: [
+            'function run() {',
+            '  getPlugin(x).generate(1);',
+            '}',
+            'function getPlugin() {}',
+            'function generate() {}',
+          ],
+          symbols: [
+            sym('run', 'Function', 0, 9, 2),
+            sym('getPlugin', 'Function', 3, 9),
+            sym('generate', 'Function', 4, 9),
+          ],
+        },
+      },
+      calls: {},
+    };
+    const queries = new FakeQueries(project);
+    const item = async (name: string) => {
+      const [found] = await queries.prepareCallHierarchy(F, pos(name === 'getPlugin' ? 3 : 4, 10));
+      if (!found) {
+        throw new Error(`no ${name} in the fake project`);
+      }
+      return found;
+    };
+    // As TypeScript reports them: both calls start where the expression starts.
+    queries.outgoingCalls = async () => [
+      { item: await item('generate'), ranges: [{ start: pos(1, 2), end: pos(1, 24) }] },
+      { item: await item('getPlugin'), ranges: [{ start: pos(1, 2), end: pos(1, 11) }] },
+    ];
+    const { graph } = await new GraphBuilder(queries).start(F, pos(0, 10));
+    const names = new Map(graph?.nodes.map((n) => [n.id, n.name]));
+    expect(graph?.edges.map((e) => `${e.order} ${names.get(e.toId)}`)).toEqual([
+      '1 getPlugin',
+      '2 generate',
+    ]);
+  });
+});

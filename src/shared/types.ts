@@ -37,6 +37,8 @@ export interface FlowNode {
   isRecursive: boolean;
   isStale: boolean;
   expanded: Relation[];
+  /** Cards an expansion left out to keep the graph readable ("+N more"), by relation. */
+  more?: Partial<Record<Relation, number>>;
   explanation?: string;
 }
 

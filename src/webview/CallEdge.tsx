@@ -45,9 +45,20 @@ export function CallEdge(props: EdgeProps<CallEdgeType>) {
 
   const edge = arrow?.edge;
   const lines = edge?.callLines.join(', ') ?? '';
-  const tip = edge?.order
-    ? `Call ${edge.order} in code order · line ${lines}`
-    : `Called on line ${lines}`;
+  const kind = edge?.kind ?? 'calls';
+  let tip: string;
+  if (arrow?.toMore) {
+    tip = 'More cards were left out here';
+  } else if (kind === 'usedBy') {
+    tip = `Refers to it on line ${lines}`;
+  } else if (kind === 'extends' || kind === 'implements') {
+    tip = kind;
+  } else if (edge?.order) {
+    tip = `Call ${edge.order} in code order · line ${lines}`;
+  } else {
+    tip = `Called on line ${lines}`;
+  }
+  const typeLabel = kind === 'extends' || kind === 'implements';
 
   return (
     <>
@@ -55,14 +66,14 @@ export function CallEdge(props: EdgeProps<CallEdgeType>) {
         <title>{tip}</title>
         <BaseEdge path={path} markerEnd={markerEnd} interactionWidth={16} />
       </g>
-      {edge && edge.order > 0 && (
+      {edge && (edge.order > 0 || typeLabel) && (
         <EdgeLabelRenderer>
           <div
-            className={`badge from-${arrow.callerKind}`}
+            className={`${typeLabel ? 'type-label' : 'badge'} from-${arrow.callerKind}`}
             style={{ transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)` }}
             title={tip}
           >
-            {edge.order}
+            {typeLabel ? kind : edge.order}
           </div>
         </EdgeLabelRenderer>
       )}

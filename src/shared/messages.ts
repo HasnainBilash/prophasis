@@ -39,6 +39,7 @@ const flowNode = z.object({
   isRecursive: z.boolean(),
   isStale: z.boolean(),
   expanded: z.array(relation),
+  more: z.partialRecord(relation, z.number().int()).optional(),
   explanation: z.string().optional(),
 });
 
@@ -80,8 +81,11 @@ const graphStatus = z.enum([
 
 export const toHost = z.discriminatedUnion('type', [
   z.object({ type: z.literal('ready') }),
-  z.object({ type: z.literal('expand'), nodeId: id, relation }),
+  /** `all`: also load what a "+N more" card left out. */
+  z.object({ type: z.literal('expand'), nodeId: id, relation, all: z.boolean().optional() }),
   z.object({ type: z.literal('collapse'), nodeId: id, relation }),
+  z.object({ type: z.literal('back') }),
+  z.object({ type: z.literal('forward') }),
   /** The user closed the first-open hint; it is not shown again. */
   z.object({ type: z.literal('dismissHint') }),
   z.object({ type: z.literal('reveal'), nodeId: id }),
@@ -100,6 +104,9 @@ export const toPanel = z.discriminatedUnion('type', [
     graph: flowGraph.optional(),
     /** Show the one-time "how to explore" hint. */
     showHint: z.boolean().optional(),
+    /** Earlier or later starting points exist (Back / Forward). */
+    canGoBack: z.boolean().optional(),
+    canGoForward: z.boolean().optional(),
   }),
   z.object({ type: z.literal('graph:patch'), patch: graphPatch }),
   /** A card finished (or failed) loading; `error` is shown next to the graph. */

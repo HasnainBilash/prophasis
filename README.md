@@ -4,7 +4,7 @@ See how your code connects. Click a function, method or class and Prophasis
 shows it as a card, with arrows to what it calls, who calls it, what a class
 contains and where it is used.
 
-> **Status: early development.** Phase 3 of 7 done: the first usable version.
+> **Status: early development.** Phase 4 of 7 done: all relationships, tested at scale.
 > Not yet published. The plan is in [docs/PLAN.md](docs/PLAN.md).
 
 ## What works today
@@ -15,6 +15,12 @@ contains and where it is used.
   it calls (in code order). Every card has **Calls** and **Called by**
   buttons to explore further, and clicking a card opens its code. Class cards
   list their members, and arrows leave from the exact member row.
+- **Used by** shows the functions and classes that refer to a symbol; on
+  classes, **Extends** shows parent and child types (both directions in
+  Python, child types in TypeScript and JavaScript).
+- Big fan-outs stay readable: one expansion adds at most 12 cards and a
+  "+N more" card. **← →** steps back and forward through earlier starting
+  points, and the search box highlights cards by name.
 - Click a lit button again to hide what it showed. Hover a card to light up
   its flow; a minimap and a "?" legend help you find your way.
 - Follows your VS Code theme: dark, light and high contrast.
@@ -54,6 +60,8 @@ npm run typecheck  # TypeScript, no output files
 npm test           # unit tests (Vitest)
 npm run check:engine  # graph engine on the sample projects, in a real VS Code
 npm run check:panel   # the real panel in VS Code, with screenshots (Windows)
+npm run check:perf    # performance on a generated 1,000-function project
+npm run check:real    # performance and output on immer and requests (cloned)
 npm run probe      # Phase 1 feasibility probe, in a real VS Code
 ```
 

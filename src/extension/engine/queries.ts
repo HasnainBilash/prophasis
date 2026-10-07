@@ -34,6 +34,12 @@ export interface CallItem {
   handle: unknown;
 }
 
+/** A place in a file, such as a reference or an implementation. */
+export interface Place {
+  uri: string;
+  range: Span;
+}
+
 export interface CallLink {
   item: CallItem;
   /** Where the call is written, in the caller's file. */
@@ -45,6 +51,14 @@ export interface LanguageQueries {
   prepareCallHierarchy(uri: string, pos: Pos): Promise<CallItem[]>;
   outgoingCalls(item: CallItem): Promise<CallLink[]>;
   incomingCalls(item: CallItem): Promise<CallLink[]>;
+  /** Every place the symbol at `pos` is referenced (its declaration may be included). */
+  references(uri: string, pos: Pos): Promise<Place[]>;
+  /** Implementations and subclasses of the type at `pos` (the type itself may be included). */
+  implementations(uri: string, pos: Pos): Promise<Place[]>;
+  /** Type hierarchy items; empty when the language doesn't support it (TypeScript, JavaScript). */
+  prepareTypeHierarchy(uri: string, pos: Pos): Promise<CallItem[]>;
+  supertypes(item: CallItem): Promise<CallItem[]>;
+  subtypes(item: CallItem): Promise<CallItem[]>;
   /** Text of one line, for the one-line signature. */
   lineText(uri: string, line: number): Promise<string>;
   /** Changes whenever the file's contents change. */

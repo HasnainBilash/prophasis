@@ -96,6 +96,58 @@ export function createVscodeQueries(token: vscode.CancellationToken): LanguageQu
       }));
     },
 
+    async references(uri, pos) {
+      const found = await run<vscode.Location[] | undefined>(
+        'Finding uses',
+        'vscode.executeReferenceProvider',
+        vscode.Uri.parse(uri, true),
+        new vscode.Position(pos.line, pos.character),
+      );
+      return (found ?? []).map((l) => ({ uri: l.uri.toString(), range: toSpan(l.range) }));
+    },
+
+    async implementations(uri, pos) {
+      const found = await run<(vscode.Location | vscode.LocationLink)[] | undefined>(
+        'Finding implementations',
+        'vscode.executeImplementationProvider',
+        vscode.Uri.parse(uri, true),
+        new vscode.Position(pos.line, pos.character),
+      );
+      return (found ?? []).map((l) =>
+        'targetUri' in l
+          ? { uri: l.targetUri.toString(), range: toSpan(l.targetSelectionRange ?? l.targetRange) }
+          : { uri: l.uri.toString(), range: toSpan(l.range) },
+      );
+    },
+
+    async prepareTypeHierarchy(uri, pos) {
+      const items = await run<vscode.TypeHierarchyItem[] | undefined>(
+        'Finding the type',
+        'vscode.prepareTypeHierarchy',
+        vscode.Uri.parse(uri, true),
+        new vscode.Position(pos.line, pos.character),
+      );
+      return (items ?? []).map(toCallItem);
+    },
+
+    async supertypes(item) {
+      const items = await run<vscode.TypeHierarchyItem[] | undefined>(
+        'Finding parent types',
+        'vscode.provideSupertypes',
+        item.handle,
+      );
+      return (items ?? []).map(toCallItem);
+    },
+
+    async subtypes(item) {
+      const items = await run<vscode.TypeHierarchyItem[] | undefined>(
+        'Finding child types',
+        'vscode.provideSubtypes',
+        item.handle,
+      );
+      return (items ?? []).map(toCallItem);
+    },
+
     async lineText(uri, line) {
       const doc = await document(uri);
       return line < doc.lineCount ? doc.lineAt(line).text : '';
@@ -129,7 +181,7 @@ function toSpan(r: vscode.Range): Span {
   return { start: toPos(r.start), end: toPos(r.end) };
 }
 
-function toCallItem(item: vscode.CallHierarchyItem): CallItem {
+function toCallItem(item: vscode.CallHierarchyItem | vscode.TypeHierarchyItem): CallItem {
   return {
     name: item.name,
     kind: vscode.SymbolKind[item.kind],

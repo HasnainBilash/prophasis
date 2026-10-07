@@ -24,6 +24,10 @@ interface Case {
     calledBy?: string[];
     /** Methods and constructors on a class card, in line order. */
     members?: string[];
+    /** "user path:line @ reference lines", sorted. */
+    usedBy?: string[];
+    /** "child extends|implements parent path:line-of-the-other-card", sorted. */
+    types?: string[];
   };
 }
 
@@ -91,8 +95,9 @@ const cases: Case[] = [
       status: 'ok',
       root: 'function buildReport js/src/report.js:3',
       calls: [
-        '1 describe method js/src/shapes.js:6 @ 4',
-        '2 Circle class js/src/shapes.js:11 @ 4',
+        // `new Circle(r).describe()`: Circle is written first.
+        '1 Circle class js/src/shapes.js:11 @ 4',
+        '2 describe method js/src/shapes.js:6 @ 4',
         '3 square function js/src/shapes.js:23 @ 5',
         '4 countdown function js/src/report.js:9 @ 6',
       ],
@@ -160,6 +165,59 @@ const cases: Case[] = [
       recursive: true,
       calls: ['1 is_odd function py/shop/notify/email.py:15 @ 12'],
       calledBy: ['is_odd py/shop/notify/email.py:15 @ 16'],
+    },
+  },
+  // Used by and extends (Phase 4). The import of PaymentProvider in
+  // orderService.ts is top-level code, so it has no card and is left out.
+  {
+    file: 'ts/src/payments/gateway.ts',
+    at: [1, 19],
+    expected: {
+      status: 'ok',
+      root: 'interface PaymentProvider ts/src/payments/gateway.ts:1',
+      members: ['method charge:2'],
+      usedBy: [
+        'PaymentGateway ts/src/payments/gateway.ts:5 @ 5',
+        'constructor ts/src/orders/orderService.ts:8 @ 8',
+      ],
+      types: ['PaymentGateway implements PaymentProvider ts/src/payments/gateway.ts:5'],
+    },
+  },
+  {
+    file: 'js/src/shapes.js',
+    at: [1, 15],
+    expected: {
+      status: 'ok',
+      root: 'class Shape js/src/shapes.js:1',
+      types: ['Circle extends Shape js/src/shapes.js:11'],
+    },
+  },
+  {
+    file: 'py/shop/cart/validate.py',
+    at: [1, 6],
+    expected: {
+      status: 'ok',
+      root: 'function validate_cart py/shop/cart/validate.py:1',
+      usedBy: ['place_order py/shop/orders/order_service.py:15 @ 16,21'],
+    },
+  },
+  {
+    file: 'py/shop/orders/order_service.py',
+    at: [9, 8],
+    expected: {
+      status: 'ok',
+      root: 'class OrderService py/shop/orders/order_service.py:9',
+      types: ['OrderService extends BaseService py/shop/orders/base.py:1'],
+    },
+  },
+  {
+    // Python has a full type hierarchy; the parent ABC is library code, so hidden.
+    file: 'py/shop/payments/gateway.py',
+    at: [4, 8],
+    expected: {
+      status: 'ok',
+      root: 'class PaymentProvider py/shop/payments/gateway.py:4',
+      types: ['PaymentGateway extends PaymentProvider py/shop/payments/gateway.py:9'],
     },
   },
 ];
@@ -269,6 +327,12 @@ async function summarise(token: vscode.CancellationToken, uri: vscode.Uri, c: Ca
   const result = await builder.start(uri.toString(), { line: c.at[0] - 1, character: c.at[1] - 1 });
   if (result.graph) {
     await builder.expand(result.graph.rootId, 'calledBy');
+    if (c.expected.usedBy) {
+      await builder.expand(result.graph.rootId, 'usedBy');
+    }
+    if (c.expected.types) {
+      await builder.expand(result.graph.rootId, 'extends');
+    }
   }
   const graph = builder.snapshot();
   const ms = Date.now() - started;
@@ -297,6 +361,21 @@ async function summarise(token: vscode.CancellationToken, uri: vscode.Uri, c: Ca
       .filter((e) => e.toId === root.id && (e.kind === 'calls' || e.kind === 'calledBy'))
       .map((e) => `${byId.get(e.fromId)?.name} ${where(e.fromId)} @ ${e.callLines.join(',')}`),
   };
+  summary.usedBy = graph.edges
+    .filter((e) => e.toId === root.id && e.kind === 'usedBy')
+    .map((e) => `${byId.get(e.fromId)?.name} ${where(e.fromId)} @ ${e.callLines.join(',')}`)
+    .sort();
+  summary.types = graph.edges
+    .filter(
+      (e) =>
+        (e.kind === 'extends' || e.kind === 'implements') &&
+        (e.fromId === root.id || e.toId === root.id),
+    )
+    .map((e) => {
+      const other = e.fromId === root.id ? e.toId : e.fromId;
+      return `${byId.get(e.fromId)?.name} ${e.kind} ${byId.get(e.toId)?.name} ${where(other)}`;
+    })
+    .sort();
   if (root.members) {
     summary.members = root.members
       .filter((m) => m.kind !== 'field')

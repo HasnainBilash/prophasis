@@ -12,6 +12,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import * as vscode from 'vscode';
 import type { ProphasisTestApi } from '../../src/extension/extension';
+import type { Relation } from '../../src/shared/types';
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -56,14 +57,17 @@ export async function run(): Promise<void> {
     for (;;) {
       await vscode.commands.executeCommand('prophasis.showFlow', uri.toString(), line, character);
       const graph = panels.graph();
-      if ((graph && graph.nodes.length > 1) || Date.now() - started > 60_000) {
+      const root = graph?.nodes.find((n) => n.id === graph.rootId);
+      // Ready once the start has something around it: other cards, or class members.
+      const ready = graph && (graph.nodes.length > 1 || (root?.members?.length ?? 0) > 0);
+      if (ready || Date.now() - started > 60_000) {
         return graph;
       }
       await sleep(1000);
     }
   };
 
-  const expand = async (name: string, relation: 'calls' | 'calledBy') => {
+  const expand = async (name: string, relation: Relation) => {
     const graph = panels.graph();
     const target =
       graph?.nodes.find((n) => n.name === name) ??
@@ -167,6 +171,30 @@ export async function run(): Promise<void> {
     14,
   );
   await capture('7-dark-empty');
+
+  // 6. Used by and Extends on an interface (Phase 4).
+  await showFlow('ts/src/payments/gateway.ts', 0, 18);
+  await expand('PaymentProvider', 'usedBy');
+  await expand('PaymentProvider', 'extends');
+  const typed = panels.graph();
+  const kinds = new Set(typed?.edges.map((e) => e.kind));
+  log.push(`interface edges: ${[...kinds].join(', ')}`);
+  if (!kinds.has('usedBy') || !kinds.has('implements')) {
+    failures.push('interface: expected usedBy and implements arrows');
+  }
+  await capture('8-dark-uses-and-types');
+
+  // 7. Back returns to the previous starting point with its graph as it was.
+  panels.receive({ type: 'back' });
+  await sleep(800);
+  const backRoot = panels.graph()?.nodes.find((n) => n.id === panels.graph()?.rootId)?.name;
+  panels.receive({ type: 'forward' });
+  await sleep(800);
+  const forwardRoot = panels.graph()?.nodes.find((n) => n.id === panels.graph()?.rootId)?.name;
+  log.push(`back -> ${backRoot}, forward -> ${forwardRoot}`);
+  if (backRoot !== 'format' || forwardRoot !== 'PaymentProvider') {
+    failures.push(`history: expected back to format and forward to PaymentProvider`);
+  }
 
   save('done');
   if (failures.length > 0) {

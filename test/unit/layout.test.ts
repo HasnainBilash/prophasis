@@ -112,3 +112,20 @@ describe('pathThrough (hover highlight)', () => {
     expect([...pathThrough('a', arrows)].sort()).toEqual(['a', 'deep', 'main', 'root']);
   });
 });
+
+describe('layout speed (PLAN section 5: 150 cards under 300 ms)', () => {
+  it('lays out 150 cards in a tree with cross links', () => {
+    const nodes = map(...Array.from({ length: 150 }, (_, i) => node(`n${i}`)));
+    const edges: FlowEdge[] = [];
+    for (let i = 1; i < 150; i++) {
+      edges.push(call(`n${Math.floor((i - 1) / 4)}`, `n${i}`, ((i - 1) % 4) + 1));
+      if (i % 7 === 0) edges.push(call(`n${i}`, `n${(i * 13) % 150}`, 5));
+    }
+    const started = performance.now();
+    const { cards } = layoutGraph(nodes, edges);
+    const ms = performance.now() - started;
+    console.log(`layout of 150 cards: ${ms.toFixed(1)} ms`);
+    expect(cards).toHaveLength(150);
+    expect(ms).toBeLessThan(300);
+  });
+});

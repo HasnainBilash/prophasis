@@ -71,7 +71,9 @@
     "probe": "npm run build && node test/feasibility/runProbe.mjs",
     "test": "vitest run --dir test/unit",
     "check:engine": "npm run build && node test/feasibility/runProbe.mjs engineCheck",
-    "check:panel": "npm run build && node test/feasibility/runProbe.mjs panelCheck"
+    "check:panel": "npm run build && node test/feasibility/runProbe.mjs panelCheck",
+    "check:perf": "npm run build && node test/perf/run.mjs",
+    "check:real": "npm run build && node test/perf/real.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

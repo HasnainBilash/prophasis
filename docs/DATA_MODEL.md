@@ -79,7 +79,8 @@ classDiagram
 | `isExternal` | The symbol lives outside the workspace folders (library, standard library). Hidden unless the setting allows it. |
 | `isRecursive` | A call cycle returns to this node; shown as a marker instead of drawing an endless loop. |
 | `isStale` | The file changed after this card was built. The card shows a small "code changed" mark and a refresh button. |
-| `order` | Arrow number: the position of the call inside the caller's body, counted by source position. This is **textual order, not run-time order**. |
+| `order` | Arrow number: the position of the call inside the caller's body, counted by where the called name is written (so `getPlugin(x).generate()` numbers `getPlugin` first). This is **textual order, not run-time order**. |
+| `more` | Cards an expansion left out, by relation ("+N more"). One expansion adds at most 12 new cards; the panel's "Show all" loads the rest. |
 | `callLines` | Every line in the caller where this call happens. Two calls to the same function make one edge with two lines, not two edges. |
 | `calledBy` edges | Found through "Called by". They point the same way as `calls` (caller → callee) but have `order` 0, because the caller's other calls aren't loaded. If the caller's calls are loaded later, the edge becomes a numbered `calls` edge. There is only ever one edge per caller/callee pair. |
 | `explanation` | Text from the Explain feature. Never stored on disk. |
@@ -107,13 +108,13 @@ checked with Zod when it arrives, in both directions.
 | Message | Payload | What the host does |
 |---|---|---|
 | `ready` | none | Sends `graph:init` for the current start symbol. |
-| `expand` | `nodeId`, `relation` | Loads that relationship one level deep, sends `graph:patch`. |
+| `expand` | `nodeId`, `relation`, optional `all` | Loads that relationship one level deep, sends `graph:patch`. `all` also loads what a "+N more" card left out. |
 | `collapse` | `nodeId`, `relation` | Sends `graph:patch` removing the nodes only reachable through it. |
 | `reveal` | `nodeId` | Opens the file and selects the symbol in the editor. |
 | `explain` | `nodeId` or `pathNodeIds` | Checks consent, calls the explain provider, sends `explain:result`. |
 | `refresh` | `nodeId` | Rebuilds a stale card. |
 | `export` | `format` (`mermaid`) | Copies the Mermaid text. |
-| `back` / `forward` | none | Moves through earlier starting points. |
+| `back` / `forward` | none | Moves through earlier starting points (up to 20). Each keeps its graph as the user left it; `graph:init` says whether there is somewhere to go (`canGoBack`, `canGoForward`). |
 | `dismissHint` | none | Remembers (in VS Code's per-user extension storage) that the first-open hint was closed. |
 | `retry` | none | Runs the last "Show flow" again (the Retry button on "language server starting" and errors). |
 

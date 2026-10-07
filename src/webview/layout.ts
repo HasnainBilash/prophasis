@@ -1,5 +1,5 @@
 import dagre from '@dagrejs/dagre';
-import type { FlowEdge, FlowNode } from '../shared/types';
+import type { FlowEdge, FlowNode, Relation } from '../shared/types';
 
 // Card sizes are fixed by the stylesheet (one line per field, fixed row
 // height), so the layout can be computed before anything is drawn.
@@ -10,11 +10,21 @@ export const CARD = {
   classHeader: 92,
   row: 26,
   actions: 40,
+  moreHeight: 64,
 } as const;
+
+/** A "+N more" box: cards an expansion left out, loaded on click. */
+export interface MoreBox {
+  ownerId: string;
+  relation: Relation;
+  count: number;
+}
 
 export interface CardBox {
   id: string;
-  node: FlowNode;
+  /** A real card; absent for a "+N more" box. */
+  node?: FlowNode;
+  more?: MoreBox;
   x: number;
   y: number;
   width: number;
@@ -32,6 +42,8 @@ export interface Arrow {
   callerKind: string;
   /** Both ends are rows of the same class card. */
   sameCard: boolean;
+  /** The dashed link to a "+N more" box. */
+  toMore?: boolean;
 }
 
 export interface Layout {
@@ -75,8 +87,14 @@ function hostOf(node: FlowNode, nodes: Map<string, FlowNode>): string | undefine
 export function layoutGraph(nodes: Map<string, FlowNode>, edges: FlowEdge[]): Layout {
   const drawn = [...nodes.values()].filter((n) => !hostOf(n, nodes));
   const arrows: Arrow[] = [];
+  const pairs = new Set<string>();
 
-  for (const edge of edges) {
+  // "Used by" goes last: when two cards are also joined by a call or a type
+  // relation, that stronger arrow is drawn and the "used by" one is not.
+  const ordered = [...edges].sort(
+    (a, b) => Number(a.kind === 'usedBy') - Number(b.kind === 'usedBy'),
+  );
+  for (const edge of ordered) {
     const from = nodes.get(edge.fromId);
     const to = nodes.get(edge.toId);
     if (!from || !to) {
@@ -91,6 +109,11 @@ export function layoutGraph(nodes: Map<string, FlowNode>, edges: FlowEdge[]): La
     const source = fromHost ?? from.id;
     const target = toHost ?? to.id;
     const sameCard = source === target;
+    const pair = [source, target].sort().join('|');
+    if (edge.kind === 'usedBy' && pairs.has(pair)) {
+      continue;
+    }
+    pairs.add(pair);
     arrows.push({
       edge,
       source,
@@ -102,11 +125,50 @@ export function layoutGraph(nodes: Map<string, FlowNode>, edges: FlowEdge[]): La
     });
   }
 
+  // "+N more" boxes sit on the side their relationship points to: callees on
+  // the right, callers, users and child types on the left.
+  const moreBoxes: { id: string; more: MoreBox; owner: string }[] = [];
+  for (const node of nodes.values()) {
+    for (const [relation, count] of Object.entries(node.more ?? {}) as [Relation, number][]) {
+      if (count > 0) {
+        const owner = hostOf(node, nodes) ?? node.id;
+        moreBoxes.push({
+          id: `more:${node.id}:${relation}`,
+          more: { ownerId: node.id, relation, count },
+          owner,
+        });
+      }
+    }
+  }
+  for (const box of moreBoxes) {
+    const outward = box.more.relation === 'calls';
+    arrows.push({
+      edge: {
+        id: box.id,
+        fromId: outward ? box.more.ownerId : box.id,
+        toId: outward ? box.id : box.more.ownerId,
+        kind: 'calls',
+        order: 0,
+        callLines: [],
+      },
+      source: outward ? box.owner : box.id,
+      sourceHandle: handle.out,
+      target: outward ? box.id : box.owner,
+      targetHandle: handle.in,
+      callerKind: 'more',
+      sameCard: false,
+      toMore: true,
+    });
+  }
+
   const g = new dagre.graphlib.Graph();
   g.setGraph({ rankdir: 'LR', nodesep: 28, ranksep: 96, marginx: 24, marginy: 24 });
   g.setDefaultEdgeLabel(() => ({}));
   for (const node of drawn) {
     g.setNode(node.id, cardSize(node));
+  }
+  for (const box of moreBoxes) {
+    g.setNode(box.id, { width: CARD.width, height: CARD.moreHeight });
   }
   for (const arrow of arrows) {
     if (!arrow.sameCard) {
@@ -121,6 +183,17 @@ export function layoutGraph(nodes: Map<string, FlowNode>, edges: FlowEdge[]): La
     // dagre gives centres; the canvas wants top-left corners.
     return { id: node.id, node, x: placed.x - width / 2, y: placed.y - height / 2, width, height };
   });
+  for (const box of moreBoxes) {
+    const placed = g.node(box.id);
+    cards.push({
+      id: box.id,
+      more: box.more,
+      x: placed.x - CARD.width / 2,
+      y: placed.y - CARD.moreHeight / 2,
+      width: CARD.width,
+      height: CARD.moreHeight,
+    });
+  }
   stackInCallOrder(cards, arrows);
   return { cards, arrows };
 }

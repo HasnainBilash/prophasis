@@ -10,6 +10,7 @@ const host = {
     probe: 'test/feasibility/probe.ts',
     engineCheck: 'test/integration/engineCheck.ts',
     panelCheck: 'test/integration/panelCheck.ts',
+    perfCheck: 'test/integration/perfCheck.ts',
   },
   bundle: true,
   outdir: 'dist',

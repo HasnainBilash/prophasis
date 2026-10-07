@@ -53,7 +53,12 @@ if (withPython) {
 
 const outDir = resolve(root, '.vscode-test', 'results');
 mkdirSync(outDir, { recursive: true });
-const out = resolve(outDir, `${suite}-${version}.json`);
+// PROBE_LABEL names the results file when one suite runs on several workspaces.
+const label = process.env.PROBE_LABEL ? `-${process.env.PROBE_LABEL}` : '';
+const out = resolve(outDir, `${suite}${label}-${version}.json`);
+// PROBE_WORKSPACE opens another folder (a generated or real project) instead of the fixtures.
+const workspace =
+  process.env.PROBE_WORKSPACE ?? resolve(root, 'test', 'fixtures', 'fixtures.code-workspace');
 
 // Settings for the throwaway test copy only (never the user's own VS Code):
 // a maximised window with no welcome page, tips or chat side bar, so
@@ -90,9 +95,10 @@ try {
     extensionTestsEnv: {
       PROBE_OUT: out,
       SCREENSHOT_DIR: resolve(root, '.vscode-test', 'screenshots'),
+      PERF_TARGETS: process.env.PERF_TARGETS ?? '',
     },
     launchArgs: [
-      resolve(root, 'test', 'fixtures', 'fixtures.code-workspace'),
+      workspace,
       `--extensions-dir=${extensionsDir}`,
       `--user-data-dir=${userDataDir}`,
       '--disable-workspace-trust',

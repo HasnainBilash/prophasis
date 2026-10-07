@@ -6,42 +6,63 @@ import { createVscodeQueries, trackOpenedDocuments } from './engine/vscodeQuerie
 import { PanelManager } from './panel';
 import { forgetDocument } from './symbols';
 
-// Activation only registers things. Nothing scans the workspace.
 /** Returned from activate() so integration tests can drive the panel without clicking. */
 export interface ProphasisTestApi {
   panels: PanelManager;
+  /** How long activate() took, for the performance check. */
+  activationMs: number;
 }
 
+// Activation only registers things. Nothing scans the workspace.
 export function activate(context: vscode.ExtensionContext): ProphasisTestApi {
+  const activationStarted = performance.now();
   const panels = new PanelManager(context.extensionUri, context.globalState);
   let lastArgs: unknown[] = [];
   const codeLenses = new FlowCodeLensProvider();
-  let current: vscode.CancellationTokenSource | undefined;
-  const cancelCurrent = () => {
-    current?.cancel();
-    current?.dispose();
-    current = undefined;
+  // Each start has its own token. Graphs in the Back history keep theirs, so they
+  // can still be expanded; closing the panel cancels everything.
+  const tokens: vscode.CancellationTokenSource[] = [];
+  let loading: vscode.CancellationTokenSource | undefined;
+  const cancelAll = () => {
+    for (const source of tokens.splice(0)) {
+      source.cancel();
+      source.dispose();
+    }
+    loading = undefined;
   };
 
   context.subscriptions.push(
     panels,
     codeLenses,
     trackOpenedDocuments(),
-    panels.onDidClose(cancelCurrent),
-    { dispose: cancelCurrent },
+    panels.onDidClose(cancelAll),
+    { dispose: cancelAll },
     vscode.languages.registerCodeLensProvider({ scheme: 'file' }, codeLenses),
     vscode.commands.registerCommand(SHOW_FLOW, async (...args: unknown[]) => {
-      // A new start replaces the graph, so anything still loading is cancelled.
-      cancelCurrent();
-      current = new vscode.CancellationTokenSource();
+      // A start that is still loading is replaced by the new one.
+      loading?.cancel();
+      const source = new vscode.CancellationTokenSource();
+      tokens.push(source);
+      // Older than the Back history can reach: nothing will use these again.
+      for (const old of tokens.splice(0, Math.max(0, tokens.length - 21))) {
+        old.cancel();
+        old.dispose();
+      }
+      loading = source;
       // From the command palette, remember the cursor so Retry asks about the same place.
       lastArgs = args.length > 0 ? args : cursorArgs();
-      await showFlow(panels, current.token, lastArgs);
+      try {
+        await showFlow(panels, source.token, lastArgs);
+      } finally {
+        if (loading === source) {
+          loading = undefined;
+        }
+      }
     }),
     panels.onDidRequestRetry(() => vscode.commands.executeCommand(SHOW_FLOW, ...lastArgs)),
     vscode.workspace.onDidCloseTextDocument((document) => forgetDocument(document.uri)),
   );
-  return { panels };
+  return { panels, activationMs: performance.now() - activationStarted };
 }
 
 export function deactivate(): void {}

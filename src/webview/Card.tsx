@@ -1,7 +1,7 @@
 import { Handle, Position, type Node, type NodeProps } from '@xyflow/react';
 import type { KeyboardEvent, MouseEvent } from 'react';
 import type { FlowNode, MemberRow, Relation } from '../shared/types';
-import { kindInfo, useActions } from './actions';
+import { displayName, kindInfo, useActions } from './actions';
 import { handle } from './layout';
 
 /** `dimmed`: another card is hovered and this one is not on its path. */
@@ -53,7 +53,7 @@ export function Card({ data }: NodeProps<CardNode>) {
             </span>
           )}
         </div>
-        <div className="card-name">{node.name}</div>
+        <div className="card-name">{displayName(node)}</div>
         <div className="card-path">
           {node.filePath} · line {node.line}
         </div>
@@ -72,6 +72,20 @@ export function Card({ data }: NodeProps<CardNode>) {
           label="← Called by"
           tip={classLike ? 'Show where this class is created or called' : 'Show what calls this'}
         />
+        <Chip
+          node={node}
+          relation="usedBy"
+          label="Used by"
+          tip="Show the functions and classes that refer to this (calls, types, imports in code)"
+        />
+        {classLike && (
+          <Chip
+            node={node}
+            relation="extends"
+            label="Extends"
+            tip="Show the types this extends or implements, and the types that extend it"
+          />
+        )}
       </div>
     </div>
   );
