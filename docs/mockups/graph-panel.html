@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Prophasis — graph panel mockup</title>
+<style>
+  /* Fallback values that stand in for VS Code theme variables in this mockup.
+     In the real extension these come from --vscode-* variables. */
+  :root {
+    --bg: #1e1e1e; --fg: #cccccc; --muted: #8b8b8b; --border: #3c3c3c;
+    --card: #252526; --card-hover: #2a2d2e; --focus: #007fd4;
+    --accent-class: #ee9d28; --accent-method: #b180d7; --accent-func: #75beff;
+    --btn-bg: #0e639c; --btn-fg: #ffffff; --badge-bg: #0e639c; --badge-fg: #ffffff;
+    --edge: #8b8b8b; --edge-active: #75beff;
+    --ui: "Segoe UI", system-ui, sans-serif; --code: Consolas, "Courier New", monospace;
+  }
+  @media (prefers-color-scheme: light) {
+    :root {
+      --bg: #ffffff; --fg: #3b3b3b; --muted: #6e6e6e; --border: #d4d4d4;
+      --card: #f5f5f5; --card-hover: #ececec; --focus: #005fb8;
+      --accent-class: #b5651d; --accent-method: #652d90; --accent-func: #005fb8;
+      --btn-bg: #005fb8; --btn-fg: #ffffff; --badge-bg: #005fb8; --badge-fg: #ffffff;
+      --edge: #6e6e6e; --edge-active: #005fb8;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg); font: 13px/1.4 var(--ui); }
+  .toolbar { display: flex; gap: 8px; align-items: center; padding: 8px 12px; border-bottom: 1px solid var(--border); }
+  .toolbar .title { font-weight: 600; margin-right: 8px; }
+  .seg { display: inline-flex; border: 1px solid var(--border); border-radius: 4px; overflow: hidden; }
+  .seg button { background: transparent; color: var(--fg); border: 0; padding: 4px 10px; font: inherit; cursor: pointer; }
+  .seg button.on { background: var(--btn-bg); color: var(--btn-fg); }
+  .search { margin-left: auto; background: var(--card); color: var(--fg); border: 1px solid var(--border); border-radius: 4px; padding: 4px 8px; width: 180px; font: inherit; }
+  .canvas { position: relative; width: 1040px; height: 520px; margin: 0 auto; }
+  svg.edges { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+  .edge { fill: none; stroke: var(--edge); stroke-width: 1.5; }
+  .edge.active { stroke: var(--edge-active); }
+  .card { position: absolute; background: var(--card); border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+  .card.start { border-color: var(--focus); box-shadow: 0 0 0 1px var(--focus); }
+  .card::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--accent); }
+  .card.class { --accent: var(--accent-class); width: 280px; }
+  .card.method { --accent: var(--accent-method); width: 240px; }
+  .card.func { --accent: var(--accent-func); width: 240px; }
+  .head { padding: 8px 10px 6px 14px; }
+  .kind { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+  .name { font-family: var(--code); font-size: 13px; font-weight: 600; }
+  .path { font-size: 11px; color: var(--muted); }
+  .sig { font-family: var(--code); font-size: 12px; color: var(--muted); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .doc { font-size: 12px; margin-top: 4px; }
+  .rows { border-top: 1px solid var(--border); }
+  .row { display: flex; align-items: center; gap: 6px; padding: 4px 10px 4px 14px; font-family: var(--code); font-size: 12px; height: 26px; }
+  .row .k { color: var(--accent-method); width: 12px; }
+  .row.field .k { color: var(--muted); }
+  .row.hot { background: var(--card-hover); }
+  .row .more { margin-left: auto; font-family: var(--ui); font-size: 11px; color: var(--muted); }
+  .actions { display: flex; flex-wrap: wrap; gap: 4px; padding: 6px 10px 8px 14px; border-top: 1px solid var(--border); }
+  .chip { border: 1px solid var(--border); border-radius: 10px; padding: 1px 8px; font-size: 11px; color: var(--fg); background: transparent; cursor: pointer; }
+  .chip.done { background: var(--btn-bg); color: var(--btn-fg); border-color: var(--btn-bg); }
+  .badge { position: absolute; width: 18px; height: 18px; border-radius: 50%; background: var(--badge-bg); color: var(--badge-fg); font-size: 11px; font-weight: 600; display: flex; align-items: center; justify-content: center; }
+  .more-card { position: absolute; width: 240px; border: 1px dashed var(--border); border-radius: 6px; padding: 8px 12px; color: var(--muted); background: transparent; }
+  .legend { text-align: center; color: var(--muted); font-size: 12px; padding: 4px 0 12px; }
+</style>
+</head>
+<body>
+  <div class="toolbar">
+    <span class="title">Prophasis</span>
+    <div class="seg" role="group" aria-label="Direction">
+      <button class="on">Calls</button><button>Called by</button><button>Both</button>
+    </div>
+    <span class="path">Start: OrderService.placeOrder</span>
+    <button class="chip">&larr; Back</button>
+    <input class="search" placeholder="Search cards" aria-label="Search cards">
+  </div>
+
+  <div class="canvas">
+    <svg class="edges" viewBox="0 0 1040 520" aria-hidden="true">
+      <defs>
+        <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="var(--edge)"/>
+        </marker>
+      </defs>
+      <!-- from member row placeOrder (y=130) to validateCart (1), chargePayment (2), sendReceipt (3) -->
+      <path class="edge active" d="M300,130 C360,130 360,56 420,56" marker-end="url(#arrow)"/>
+      <path class="edge active" d="M300,130 C360,130 360,210 420,210" marker-end="url(#arrow)"/>
+      <path class="edge active" d="M300,130 C360,130 360,360 420,360" marker-end="url(#arrow)"/>
+      <!-- chargePayment to PaymentGateway.charge -->
+      <path class="edge" d="M660,226 C720,226 720,170 780,170" marker-end="url(#arrow)"/>
+    </svg>
+
+    <!-- Start: class card with member rows -->
+    <div class="card class start" style="left:20px; top:30px;">
+      <div class="head">
+        <div class="kind">class</div>
+        <div class="name">OrderService</div>
+        <div class="path">src/orders/orderService.ts · line 12</div>
+        <div class="doc">Creates and pays for customer orders.</div>
+      </div>
+      <div class="rows">
+        <div class="row hot"><span class="k">ƒ</span> placeOrder(cart)</div>
+        <div class="row"><span class="k">ƒ</span> cancelOrder(id)</div>
+        <div class="row"><span class="k">ƒ</span> refund(id, amount)</div>
+        <div class="row field"><span class="k">▪</span> gateway: PaymentGateway</div>
+        <div class="row"><span class="more">+ 3 more members</span></div>
+      </div>
+      <div class="actions">
+        <button class="chip done">Contains</button>
+        <button class="chip">Used by</button>
+        <button class="chip">Extends</button>
+        <button class="chip">Explain</button>
+      </div>
+    </div>
+
+    <!-- Called functions -->
+    <div class="card func" style="left:420px; top:20px;">
+      <div class="head">
+        <div class="kind">function</div>
+        <div class="name">validateCart</div>
+        <div class="path">src/cart/validate.ts · line 4</div>
+        <div class="sig">(cart: Cart): ValidationResult</div>
+      </div>
+      <div class="actions"><button class="chip">Calls</button><button class="chip">Called by</button><button class="chip">Explain</button></div>
+    </div>
+
+    <div class="card method" style="left:420px; top:174px;">
+      <div class="head">
+        <div class="kind">method</div>
+        <div class="name">chargePayment</div>
+        <div class="path">src/orders/orderService.ts · line 58</div>
+        <div class="sig">(total: Money): Promise&lt;Receipt&gt;</div>
+      </div>
+      <div class="actions"><button class="chip done">Calls</button><button class="chip">Called by</button><button class="chip">Explain</button></div>
+    </div>
+
+    <div class="card func" style="left:420px; top:324px;">
+      <div class="head">
+        <div class="kind">function</div>
+        <div class="name">sendReceipt</div>
+        <div class="path">src/notify/email.ts · line 21</div>
+        <div class="sig">(receipt: Receipt): void</div>
+      </div>
+      <div class="actions"><button class="chip">Calls</button><button class="chip">Called by</button><button class="chip">Explain</button></div>
+    </div>
+
+    <div class="card class" style="left:780px; top:120px; width:240px;">
+      <div class="head">
+        <div class="kind">class</div>
+        <div class="name">PaymentGateway</div>
+        <div class="path">src/payments/gateway.ts · line 9</div>
+      </div>
+      <div class="rows">
+        <div class="row"><span class="k">ƒ</span> charge(total)</div>
+        <div class="row"><span class="k">ƒ</span> refund(id)</div>
+      </div>
+    </div>
+
+    <div class="more-card" style="left:780px; top:300px;">12 more calls not shown. Expand a card to see them.</div>
+
+    <!-- Order badges -->
+    <div class="badge" style="left:352px; top:70px;">1</div>
+    <div class="badge" style="left:352px; top:150px;">2</div>
+    <div class="badge" style="left:352px; top:240px;">3</div>
+  </div>
+
+  <div class="legend">Arrow numbers show the order the calls appear in the code, not necessarily the order they run.</div>
+</body>
+</html>
