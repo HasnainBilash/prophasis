@@ -4,3 +4,4 @@ node_modules/
 test/fixtures/
 docs/
 package-lock.json
+THIRD_PARTY_NOTICES.md

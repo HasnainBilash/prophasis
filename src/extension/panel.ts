@@ -6,6 +6,7 @@ import type { Explainer } from './explain/explainer';
 import { ExplainError } from './explain/provider';
 import { toHost, type ToHost, type ToPanel } from '../shared/messages';
 import { toMermaid } from '../shared/mermaid';
+import { logError, logWarning } from './log';
 import type { GraphStatus } from '../shared/types';
 
 /** Remembers (per user, across sessions) that the first-open hint was closed. */
@@ -134,7 +135,10 @@ export class PanelManager implements vscode.Disposable {
   receive(raw: unknown): void {
     const parsed = toHost.safeParse(raw);
     if (!parsed.success) {
-      console.warn('Prophasis: ignored an unexpected message from the panel');
+      logWarning('panelMessageRejected', {
+        issue: parsed.error.issues[0]?.message,
+        path: parsed.error.issues[0]?.path.join('.'),
+      });
       return;
     }
     const message: ToHost = parsed.data;
@@ -236,6 +240,7 @@ export class PanelManager implements vscode.Disposable {
       if (error instanceof CancelledError || session !== this.session) {
         return;
       }
+      logError('expand', error, { relation, all });
       const text =
         error instanceof QueryTimeoutError
           ? 'The language server took too long to answer. Try again in a moment.'
@@ -277,6 +282,11 @@ export class PanelManager implements vscode.Disposable {
     } catch (error) {
       if (error instanceof ExplainError && error.code === 'cancelled') {
         return;
+      }
+      // Expected outcomes (declined, no model, untrusted) are not problems; the rest are logged.
+      const expected = error instanceof ExplainError && error.code !== 'failed';
+      if (!expected) {
+        logError('explain', error, { path });
       }
       const text = error instanceof Error ? error.message : String(error);
       this.post({ type: 'explain:result', nodeId, path, title, error: text });

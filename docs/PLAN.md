@@ -323,13 +323,21 @@ build time.** Everything after that adds depth and polish.
 - [x] Fixes and wording from your testing
 
 ### Phase 7: Production hardening and release (about 3–4 hours)
-- [ ] Security checklist, dependency audit, licence check, structured error logging
-- [ ] Test and coverage review
-- [ ] CI release workflow that builds the `.vsix` from a version tag
-- [ ] Extension icon and Marketplace banner colour in the same palette
-- [ ] README: banner, pitch, demo GIF, screenshots, features, limitations, settings, getting started, CI badge
-- [ ] Marketplace publisher setup, click by click; first publish **only after your OK**
-- [ ] Interview prep: likely questions with short answers; CV bullets using only true numbers
+- [x] Security checklist, dependency audit, licence check, structured error logging
+  (0 known vulnerabilities; all 20 bundled packages MIT, ISC or BSD-3-Clause, notices in
+  THIRD_PARTY_NOTICES.md and checked in CI; errors logged to View → Output → Prophasis)
+- [x] Test and coverage review (logic modules 82–100% of lines; the panel state and message
+  checks were untested and now are; see docs/TESTING.md)
+- [x] CI release workflow that builds the `.vsix` from a version tag (release.yml), and a
+  manual publish workflow (publish.yml)
+- [x] Extension icon and Marketplace banner colour in the same palette
+- [x] README: banner, pitch, demo animation, screenshots, features, limitations, settings,
+  getting started, CI badge
+- [x] The packaged `.vsix` installed into a clean VS Code and used (check:vsix, also in CI)
+- [ ] Marketplace publisher setup: click-by-click steps given to the owner; needs the owner's
+  account. First publish **only after your OK**
+- [x] Interview prep: likely questions with short answers; CV bullets using only true numbers
+  (given in the chat, not committed)
 
 **Total:** about 28–35 hours of build time over several sessions. These are
 estimates; Phase 1 will show how far off they are.
@@ -405,6 +413,8 @@ estimates; Phase 1 will show how far off they are.
 | 2026-10-07 | Arrow numbers follow where each called *name* is written (the end of the callee expression), not where the expression starts. | Chained calls like `getPlugin(x).generate()` were numbered in the wrong order; this also corrected one Phase 2 expectation (`new Circle(r).describe()`: Circle first). | None | Standing OK for fixes |
 | 2026-10-07 | Explain: closing the drawer sends `cancelExplain` and stops the request; doc comments come from hover text. | Closing should not spend the user's model quota; hover text is where every language server already puts doc comments, so no per-language parsing is needed. | None (part of Phase 5) | Standing OK for small corrections |
 | 2026-10-07 | Shortcut is Ctrl+Shift+Alt+F (Cmd+Shift+Alt+F on Mac); the right-click entry only shows where the language has call hierarchy (`editorHasCallHierarchyProvider`); "Copy Graph as Mermaid" is also a command. The Marketplace publisher account is left to the owner. | Three-modifier shortcuts rarely clash with VS Code defaults; a menu entry that can't work would confuse. Creating an account is outward-facing, so it needs the owner. | None | Standing OK for small corrections |
+| 2026-10-07 | The README demo is an animated PNG (APNG) built from real screenshots, not a GIF. | No screen recorder or ffmpeg here; APNG shows on GitHub and the Marketplace like a GIF, in full colour, and is built by a small script with no new dependency. | None | Standing OK for small corrections |
+| 2026-10-07 | Added an installed-package check (`check:vsix`) to CI. | Development-mode tests can't catch packaging mistakes such as a missing bundle. | About 20 min | Standing OK |
 
 ---
 

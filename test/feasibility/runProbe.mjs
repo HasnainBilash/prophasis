@@ -3,7 +3,7 @@
 // Usage: npm run probe            (latest stable VS Code)
 //        PROBE_VSCODE=1.90.0 npm run probe   (a specific version)
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
@@ -31,24 +31,40 @@ const suite = process.argv[2] ?? 'probe';
 const withPython = process.env.PROBE_PYTHON !== '0';
 
 const vscodeExecutablePath = await downloadAndUnzipVSCode(version);
-const extensionsDir = resolve(root, '.vscode-test', 'extensions');
-const userDataDir = resolve(root, '.vscode-test', 'user-data');
+// PROBE_VSIX: install that packaged .vsix into a clean extensions folder and
+// test it as a user would, instead of loading the extension from source.
+const vsix = process.env.PROBE_VSIX ? resolve(root, process.env.PROBE_VSIX) : undefined;
+const extensionsDir = resolve(root, '.vscode-test', vsix ? 'extensions-vsix' : 'extensions');
+const userDataDir = resolve(root, '.vscode-test', vsix ? 'user-data-vsix' : 'user-data');
+if (vsix) {
+  rmSync(extensionsDir, { recursive: true, force: true });
+}
 
-if (withPython) {
-  const [cli, ...cliArgs] = resolveCliArgsFromVSCodeExecutablePath(vscodeExecutablePath, {
-    reuseMachineInstall: false,
+const [cli, ...defaultCliArgs] = resolveCliArgsFromVSCodeExecutablePath(vscodeExecutablePath, {
+  reuseMachineInstall: false,
+});
+// Always install into this run's own extensions folder.
+const cliArgs = [
+  ...defaultCliArgs.filter((arg) => !arg.startsWith('--extensions-dir')),
+  `--extensions-dir=${extensionsDir}`,
+];
+const install = (what) => {
+  const result = spawnSync(cli, [...cliArgs, '--install-extension', what], {
+    encoding: 'utf8',
+    shell: process.platform === 'win32',
   });
-  for (const id of ['ms-python.python', 'ms-python.vscode-pylance']) {
-    const result = spawnSync(cli, [...cliArgs, '--install-extension', id], {
-      encoding: 'utf8',
-      shell: process.platform === 'win32',
-    });
-    process.stdout.write(result.stdout ?? '');
-    process.stderr.write(result.stderr ?? '');
-    if (result.status !== 0) {
-      fail(`Installing ${id} failed (exit ${result.status}): ${result.stderr || result.error}`);
-    }
+  process.stdout.write(result.stdout ?? '');
+  process.stderr.write(result.stderr ?? '');
+  if (result.status !== 0) {
+    fail(`Installing ${what} failed (exit ${result.status}): ${result.stderr || result.error}`);
   }
+};
+if (withPython) {
+  install('ms-python.python');
+  install('ms-python.vscode-pylance');
+}
+if (vsix) {
+  install(vsix);
 }
 
 const outDir = resolve(root, '.vscode-test', 'results');
@@ -90,7 +106,8 @@ delete process.env.ELECTRON_RUN_AS_NODE;
 try {
   await runTests({
     vscodeExecutablePath,
-    extensionDevelopmentPath: root,
+    // With a .vsix, an empty host extension stands in, so the installed copy is used.
+    extensionDevelopmentPath: vsix ? resolve(root, 'test', 'integration', 'vsix-host') : root,
     extensionTestsPath: resolve(root, 'dist', `${suite}.js`),
     extensionTestsEnv: {
       PROBE_OUT: out,

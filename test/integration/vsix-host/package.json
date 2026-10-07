@@ -1,0 +1,9 @@
+{
+  "name": "prophasis-vsix-check-host",
+  "description": "Empty development extension that only hosts the installed-package check (vsixCheck).",
+  "version": "0.0.0",
+  "publisher": "local",
+  "engines": {
+    "vscode": "^1.90.0"
+  }
+}

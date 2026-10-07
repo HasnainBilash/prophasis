@@ -7,11 +7,11 @@
  * Privacy: only the window titled "Extension Development Host" is captured,
  * through PrintWindow, so other windows on the screen never appear.
  */
-import { execFile } from 'node:child_process';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import * as vscode from 'vscode';
 import type { ProphasisTestApi } from '../../src/extension/extension';
+import { captureTestWindow } from './capture';
 import type { Relation } from '../../src/shared/types';
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -82,7 +82,7 @@ export async function run(): Promise<void> {
 
   const capture = async (name: string) => {
     await sleep(1500); // let the panel lay out and fit
-    const result = await captureForeground(join(shots, `${name}.png`));
+    const result = await captureTestWindow(join(shots, `${name}.png`));
     log.push(`${name}: ${result}`);
     save(name);
     console.log(`[panel] ${name}: ${result}`);
@@ -225,67 +225,4 @@ export async function run(): Promise<void> {
   if (failures.length > 0) {
     throw new Error(`Panel check failed:\n  ${failures.join('\n  ')}`);
   }
-}
-
-/**
- * Saves a PNG of the Extension Development Host window, found by its title.
- * PrintWindow copies that one window's contents even when other windows
- * cover it, so nothing else on the screen is captured.
- */
-function captureForeground(file: string): Promise<string> {
-  if (process.platform !== 'win32') {
-    return Promise.resolve('skipped (screenshots are only set up for Windows)');
-  }
-  const script = `
-Add-Type -AssemblyName System.Drawing
-Add-Type @"
-using System; using System.Runtime.InteropServices; using System.Text;
-public static class W {
-  public delegate bool EnumProc(IntPtr h, IntPtr p);
-  [DllImport("user32.dll")] public static extern bool EnumWindows(EnumProc f, IntPtr p);
-  [DllImport("user32.dll")] public static extern bool IsWindowVisible(IntPtr h);
-  [DllImport("user32.dll")] public static extern int GetWindowText(IntPtr h, StringBuilder s, int n);
-  [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr h, out RECT r);
-  [DllImport("user32.dll")] public static extern bool PrintWindow(IntPtr h, IntPtr dc, uint flags);
-  [DllImport("user32.dll")] public static extern bool SetProcessDPIAware();
-  public struct RECT { public int Left, Top, Right, Bottom; }
-  // The largest visible window with the title: VS Code also has small helper windows.
-  public static IntPtr Find(string part) {
-    IntPtr found = IntPtr.Zero; long best = 0;
-    EnumWindows((h, p) => {
-      var sb = new StringBuilder(512); GetWindowText(h, sb, 512);
-      RECT r;
-      if (IsWindowVisible(h) && sb.ToString().Contains(part) && GetWindowRect(h, out r)) {
-        long area = (long)(r.Right - r.Left) * (r.Bottom - r.Top);
-        if (area > best) { best = area; found = h; }
-      }
-      return true;
-    }, IntPtr.Zero);
-    return found;
-  }
-}
-"@
-[W]::SetProcessDPIAware() | Out-Null
-$h = [W]::Find('Extension Development Host')
-if ($h -eq [IntPtr]::Zero) { Write-Output "skipped (test window not found)"; exit 0 }
-$r = New-Object W+RECT
-[W]::GetWindowRect($h, [ref]$r) | Out-Null
-$w = $r.Right - $r.Left; $hgt = $r.Bottom - $r.Top
-$bmp = New-Object System.Drawing.Bitmap $w, $hgt
-$g = [System.Drawing.Graphics]::FromImage($bmp)
-$dc = $g.GetHdc()
-# 2 = PW_RENDERFULLCONTENT, needed for windows drawn by the GPU (Chromium).
-$ok = [W]::PrintWindow($h, $dc, 2)
-$g.ReleaseHdc($dc)
-$bmp.Save('${file.replace(/'/g, "''")}', [System.Drawing.Imaging.ImageFormat]::Png)
-Write-Output "saved ($w x $hgt, PrintWindow=$ok)"
-`;
-  return new Promise((resolve) => {
-    execFile(
-      'powershell.exe',
-      ['-NoProfile', '-NonInteractive', '-Command', script],
-      { windowsHide: true },
-      (error, stdout) => resolve(error ? `failed: ${error.message}` : stdout.trim()),
-    );
-  });
 }

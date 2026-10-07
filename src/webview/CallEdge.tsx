@@ -20,7 +20,9 @@ export function CallEdge(props: EdgeProps<CallEdgeType>) {
 
   if (arrow?.sameCard) {
     // Both ends are rows of one class card: loop out to the right and back.
-    const reach = 56 + Math.min(Math.abs(targetY - sourceY) / 4, 40);
+    // The loop reaches past where the card's other arrows fan out, so its
+    // number doesn't sit on top of theirs.
+    const reach = 90 + Math.min(Math.abs(targetY - sourceY) / 3, 50);
     path = `M ${sourceX} ${sourceY} C ${sourceX + reach} ${sourceY}, ${targetX + reach} ${targetY}, ${targetX} ${targetY}`;
     labelX = Math.max(sourceX, targetX) + reach * 0.75;
     labelY = (sourceY + targetY) / 2;

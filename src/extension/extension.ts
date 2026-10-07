@@ -5,6 +5,7 @@ import { CancelledError, QueryTimeoutError } from './engine/queries';
 import { createVscodeQueries, trackOpenedDocuments } from './engine/vscodeQueries';
 import { Explainer } from './explain/explainer';
 import { createVscodeModelProvider } from './explain/vscodeModel';
+import { logError, startLog } from './log';
 import { PanelManager } from './panel';
 import { forgetDocument } from './symbols';
 
@@ -18,6 +19,7 @@ export interface ProphasisTestApi {
 // Activation only registers things. Nothing scans the workspace.
 export function activate(context: vscode.ExtensionContext): ProphasisTestApi {
   const activationStarted = performance.now();
+  startLog(context);
   const config = () => vscode.workspace.getConfiguration('prophasis');
   const explainer = new Explainer(
     createVscodeModelProvider(),
@@ -161,10 +163,15 @@ async function showFlow(
     if (error instanceof CancelledError) {
       return;
     }
+    logError('showFlow', error, {
+      file: vscode.workspace.asRelativePath(target.uri),
+      line: target.position.line + 1,
+      language: vscode.window.activeTextEditor?.document.languageId,
+    });
     const message =
       error instanceof QueryTimeoutError
         ? 'The language server took too long to answer. It may still be indexing the project; try again in a moment.'
-        : `Something went wrong: ${String(error)}`;
+        : `Something went wrong: ${String(error)}. Details are in View → Output → Prophasis.`;
     panels.show({ title: 'Show flow', status: 'error', message, sourceColumn: target.column });
   }
 }

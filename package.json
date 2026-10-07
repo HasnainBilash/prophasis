@@ -1,21 +1,52 @@
 {
   "name": "prophasis",
   "displayName": "Prophasis",
-  "description": "See how your code connects: functions, methods and classes as cards and arrows.",
+  "description": "See how your code connects: functions, methods and classes as cards with numbered arrows. Explore calls, callers, uses and types, and explain any path in plain language.",
   "version": "0.0.1",
   "publisher": "prophasis",
   "license": "MIT",
+  "icon": "media/icon.png",
+  "galleryBanner": {
+    "color": "#1e1b4b",
+    "theme": "dark"
+  },
+  "homepage": "https://github.com/HasnainBilash/prophasis#readme",
+  "bugs": {
+    "url": "https://github.com/HasnainBilash/prophasis/issues"
+  },
   "repository": {
     "type": "git",
-    "url": "https://github.com/hasnainbilash/prophasis.git"
+    "url": "https://github.com/HasnainBilash/prophasis.git"
   },
   "engines": {
     "vscode": "^1.90.0"
   },
   "categories": [
     "Visualization",
-    "Programming Languages"
+    "Programming Languages",
+    "Other"
   ],
+  "keywords": [
+    "call graph",
+    "call hierarchy",
+    "code map",
+    "flow",
+    "visualize",
+    "diagram",
+    "typescript",
+    "python",
+    "explain code"
+  ],
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": "limited",
+      "description": "Explain is turned off in untrusted workspaces, because it sends code to a language model. The graph works."
+    },
+    "virtualWorkspaces": {
+      "supported": false,
+      "description": "Prophasis needs a language server with call hierarchy, which virtual workspaces usually do not have."
+    }
+  },
   "main": "./dist/extension.js",
   "activationEvents": [
     "onStartupFinished"
@@ -157,7 +188,12 @@
     "check:engine": "npm run build && node test/feasibility/runProbe.mjs engineCheck",
     "check:panel": "npm run build && node test/feasibility/runProbe.mjs panelCheck",
     "check:perf": "npm run build && node test/perf/run.mjs",
-    "check:real": "npm run build && node test/perf/real.mjs"
+    "check:real": "npm run build && node test/perf/real.mjs",
+    "notices": "node scripts/notices.mjs",
+    "package": "npm run build && node scripts/notices.mjs --check && vsce package --no-dependencies",
+    "check:vsix": "npm run package && node test/integration/runVsix.mjs",
+    "readme:images": "npm run build && node scripts/readmeImages.mjs",
+    "test:coverage": "vitest run --dir test/unit --coverage --coverage.include=src/**"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
@@ -166,7 +202,9 @@
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@types/vscode": "1.90.0",
+    "@vitest/coverage-v8": "^4.1.11",
     "@vscode/test-electron": "^3.1.0",
+    "@vscode/vsce": "^4.0.0",
     "esbuild": "^0.28.2",
     "eslint": "^10.12.0",
     "globals": "^17.13.0",

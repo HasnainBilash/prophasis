@@ -1,0 +1,40 @@
+name: Release
+
+# Pushing a version tag (for example v0.1.0) builds the .vsix and attaches it
+# to a GitHub Release. Publishing to the Marketplace is a separate, manual
+# workflow (publish.yml).
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Tag matches package.json version
+        run: |
+          version="v$(node -p "require('./package.json').version")"
+          if [ "$version" != "$GITHUB_REF_NAME" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match package.json version $version"
+            exit 1
+          fi
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - name: Third-party notices are up to date
+        run: node scripts/notices.mjs --check
+      - name: Package
+        run: npm run package
+      - name: Create the GitHub Release with the .vsix
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" ./*.vsix --title "Prophasis $GITHUB_REF_NAME" --generate-notes

@@ -11,6 +11,8 @@ const host = {
     engineCheck: 'test/integration/engineCheck.ts',
     panelCheck: 'test/integration/panelCheck.ts',
     perfCheck: 'test/integration/perfCheck.ts',
+    vsixCheck: 'test/integration/vsixCheck.ts',
+    readmeShots: 'test/integration/readmeShots.ts',
   },
   bundle: true,
   outdir: 'dist',

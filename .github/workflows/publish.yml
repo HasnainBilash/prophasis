@@ -1,0 +1,36 @@
+name: Publish
+
+# Manual only: Actions → Publish → Run workflow, then type the release tag.
+# Publishes that release's .vsix to the VS Code Marketplace and Open VSX.
+# Needs the repository secrets VSCE_PAT and OVSX_PAT; a store whose secret is
+# missing is skipped.
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag to publish, for example v0.1.0'
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    env:
+      VSCE_PAT: ${{ secrets.VSCE_PAT }}
+      OVSX_PAT: ${{ secrets.OVSX_PAT }}
+    steps:
+      - name: Download the .vsix from the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release download "${{ inputs.tag }}" --repo "$GITHUB_REPOSITORY" --pattern '*.vsix'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Publish to the VS Code Marketplace
+        if: env.VSCE_PAT != ''
+        run: npx --yes @vscode/vsce@4 publish --packagePath ./*.vsix --pat "$VSCE_PAT"
+      - name: Publish to Open VSX
+        if: env.OVSX_PAT != ''
+        run: npx --yes ovsx publish ./*.vsix --pat "$OVSX_PAT"

@@ -1,0 +1,11 @@
+# Only the built bundles, media, README, LICENSE and notices ship in the .vsix.
+**
+!dist/extension.js
+!dist/webview.js
+!dist/webview.css
+!media/icon.png
+!media/walkthrough/**
+!README.md
+!LICENSE
+!THIRD_PARTY_NOTICES.md
+!package.json
