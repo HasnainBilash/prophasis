@@ -276,6 +276,7 @@ build time.** Everything after that adds depth and polish.
 - [ ] Function card and class card with member rows; arrows leave from rows
 - [ ] "Native+" look (BRIEF section 10): kind palette, card depth, start glow, dot grid, minimap, path highlight, enter motion; contrast checked in dark, light and high-contrast themes
 - [ ] Numbered arrows
+- [ ] Easy to understand: plain labels and tooltips on every control, a small legend (colours, numbered arrows), and a one-time hint on first open ("Click Calls or Called by on any card to explore")
 - [ ] Click to jump, expand, collapse, zoom to fit
 - [ ] Called by (incoming calls)
 - [ ] Zod-validated messages, webview CSP
@@ -299,6 +300,7 @@ build time.** Everything after that adds depth and polish.
 
 ### Phase 6: Polish (about 1.5–2 hours)
 - [ ] Right-click menu, shortcut
+- [ ] A short "Get Started" walkthrough (VS Code's built-in onboarding page): what Prophasis shows, how to start, how to read the arrows
 - [ ] Export Mermaid
 - [ ] Keyboard navigation inside the graph, contrast, screen-reader labels
 - [ ] Fixes and wording from your testing
@@ -377,6 +379,8 @@ estimates; Phase 1 will show how far off they are.
 | 2026-10-07 | Our own rate limit on Explain removed. | Explain runs only on a click, results are cached by code hash, and VS Code's Language Model API enforces its own quota with a clear error. A second limit protects nothing. | Saves about 20 min in Phase 5 | Same standing OK |
 | 2026-10-07 | Visual direction changed from plain "native card" to "Native+": theme surfaces plus our own modern kind palette, depth, glow, dot grid, minimap, path highlight and motion (BRIEF section 10). Extension icon and banner added to Phase 7. | You asked for a visually good, eye-catching look; a graph tool is judged by its screenshot. High Contrast keeps theme-only colours. | Adds about 1.5 h to Phase 3 and 20 min to Phase 7 | Owner, 2026-10-07 (left the styling to my judgement) |
 | 2026-10-07 | Own-API-key Explain provider moved to Later; the `prophasis.explain.provider` setting is removed until there is a second provider. | Most VS Code users can reach a model through VS Code's Language Model API; an own-key provider means picking a vendor, storing keys and tracking their API changes. The provider interface stays, so it can be added later. | Saves about 1.5 h in Phase 5 | Owner, 2026-10-07 (left it to my judgement) |
+| 2026-10-07 | Added the goal "intuitive, value clear within a minute": legend, tooltips and a first-open hint in Phase 3; a Get Started walkthrough in Phase 6. | Owner request. A tool people don't understand in the first minute gets uninstalled. | Adds about 30 min in Phase 3 and 30 min in Phase 6 | Owner, 2026-10-07 |
+| 2026-10-07 | Data model clarifications found while building the engine: member rows can be `field`; `hiddenMembers` on class cards; `graph:patch` gains `updateNodes`; `calledBy` edges defined (caller → callee, order 0, upgraded to `calls` later). | The frozen model had gaps: rows listed fields but `NodeKind` had no field, and a patch had no way to change an existing card. | None (part of Phase 2) | Within the standing OK for small corrections; flagged in the Phase 2 report |
 
 ---
 

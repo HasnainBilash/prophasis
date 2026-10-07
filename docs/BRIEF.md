@@ -47,6 +47,7 @@ tools only.
 
 ## 4. Goals
 
+- **Intuitive:** a first-time user understands what the panel shows and why it is useful within a minute, without reading docs. Plain words on every button ("Calls", "Called by"), a tooltip on every control, and empty states that say what to do next.
 - Be useful on a real multi-file project in the first five minutes.
 - Be honest about what it can't see (section 9 of `docs/PLAN.md`).
 - Be fast: never freeze the editor, even on large projects.

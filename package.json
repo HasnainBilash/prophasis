@@ -27,7 +27,39 @@
         "title": "Show Flow",
         "category": "Prophasis"
       }
-    ]
+    ],
+    "configuration": {
+      "title": "Prophasis",
+      "properties": {
+        "prophasis.defaultDepth": {
+          "type": "integer",
+          "default": 1,
+          "minimum": 1,
+          "maximum": 3,
+          "description": "How many levels of calls to load when a graph opens. 1 shows the starting point and what it calls directly; you can expand any card from there."
+        },
+        "prophasis.maxCards": {
+          "type": "integer",
+          "default": 150,
+          "minimum": 10,
+          "maximum": 1000,
+          "description": "Most cards shown at once. Anything beyond this is counted in a \"more not shown\" note."
+        },
+        "prophasis.showExternalCode": {
+          "type": "boolean",
+          "default": false,
+          "description": "Show calls into library and standard-library code (for example JSON.stringify or len)."
+        },
+        "prophasis.excludeGlobs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "markdownDescription": "File patterns to leave out of the graph, relative to the workspace folder. Example: `**/test/**`."
+        }
+      }
+    }
   },
   "scripts": {
     "build": "node esbuild.mjs",
@@ -36,11 +68,14 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "probe": "npm run build && node test/feasibility/runProbe.mjs"
+    "probe": "npm run build && node test/feasibility/runProbe.mjs",
+    "test": "vitest run --dir test/unit",
+    "check:engine": "npm run build && node test/feasibility/runProbe.mjs engineCheck"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@types/node": "^20.19.0",
+    "@types/picomatch": "^4.0.3",
     "@types/vscode": "1.90.0",
     "@vscode/test-electron": "^3.1.0",
     "esbuild": "^0.28.2",
@@ -48,6 +83,10 @@
     "globals": "^17.13.0",
     "prettier": "^3.9.9",
     "typescript": "~6.0.3",
-    "typescript-eslint": "^8.71.1"
+    "typescript-eslint": "^8.71.1",
+    "vitest": "^4.1.11"
+  },
+  "dependencies": {
+    "picomatch": "^4.0.7"
   }
 }

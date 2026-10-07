@@ -8,6 +8,7 @@ const options = {
   entryPoints: {
     extension: 'src/extension/extension.ts',
     probe: 'test/feasibility/probe.ts',
+    engineCheck: 'test/integration/engineCheck.ts',
   },
   bundle: true,
   outdir: 'dist',

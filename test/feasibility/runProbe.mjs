@@ -14,6 +14,8 @@ import {
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const version = process.env.PROBE_VSCODE ?? 'stable';
+// Which bundle in dist/ to run: 'probe' (Phase 1 feasibility) or 'engineCheck'.
+const suite = process.argv[2] ?? 'probe';
 const withPython = process.env.PROBE_PYTHON !== '0';
 
 const vscodeExecutablePath = await downloadAndUnzipVSCode(version);
@@ -38,7 +40,7 @@ if (withPython) {
 
 const outDir = resolve(root, '.vscode-test', 'results');
 mkdirSync(outDir, { recursive: true });
-const out = resolve(outDir, `probe-${version}.json`);
+const out = resolve(outDir, `${suite}-${version}.json`);
 
 // When this runs from a terminal inside VS Code, ELECTRON_RUN_AS_NODE=1 is inherited
 // and would start the test copy of VS Code as plain Node instead of the editor.
@@ -47,7 +49,7 @@ delete process.env.ELECTRON_RUN_AS_NODE;
 await runTests({
   vscodeExecutablePath,
   extensionDevelopmentPath: root,
-  extensionTestsPath: resolve(root, 'dist', 'probe.js'),
+  extensionTestsPath: resolve(root, 'dist', `${suite}.js`),
   extensionTestsEnv: { PROBE_OUT: out },
   launchArgs: [
     resolve(root, 'test', 'fixtures', 'fixtures.code-workspace'),

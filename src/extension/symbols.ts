@@ -1,6 +1,12 @@
 import * as vscode from 'vscode';
+import {
+  isAnonymousCallback,
+  isValueKind,
+  looksLikeFunctionValue,
+  toNodeKind,
+} from './engine/kinds';
 
-/** A symbol that can be a starting point: a function, method or class-like type. */
+/** A symbol that can be a starting point: a function, method, class-like type or a variable holding a function. */
 export interface StartSymbol {
   name: string;
   kind: vscode.SymbolKind;
@@ -9,15 +15,6 @@ export interface StartSymbol {
   /** Where the name is written; the call hierarchy is asked at this position. */
   selectionRange: vscode.Range;
 }
-
-const startKinds = new Set<vscode.SymbolKind>([
-  vscode.SymbolKind.Function,
-  vscode.SymbolKind.Method,
-  vscode.SymbolKind.Constructor,
-  vscode.SymbolKind.Class,
-  vscode.SymbolKind.Interface,
-  vscode.SymbolKind.Struct,
-]);
 
 // Keyed by document URI. An entry is only valid for the document version it was
 // built from, so an edited file is never served stale symbols.
@@ -36,7 +33,7 @@ export async function getStartSymbols(document: vscode.TextDocument): Promise<St
 
   const symbols: StartSymbol[] = [];
   for (const item of result ?? []) {
-    collect(item, symbols);
+    collect(document, item, symbols);
   }
   // A language server that is still starting answers with nothing. Caching that
   // would hide the buttons until the file is edited, so empty answers aren't kept.
@@ -50,11 +47,36 @@ export function forgetDocument(uri: vscode.Uri): void {
   cache.delete(uri.toString());
 }
 
+function canStart(
+  document: vscode.TextDocument,
+  name: string,
+  kind: vscode.SymbolKind,
+  nameRange: vscode.Range,
+): boolean {
+  const kindName = vscode.SymbolKind[kind];
+  // Enums have no calls; until "used by" exists (Phase 4) a button on them is noise.
+  if (isAnonymousCallback(name) || kindName === 'Enum') {
+    return false;
+  }
+  if (toNodeKind(kindName)) {
+    return true;
+  }
+  if (!isValueKind(kindName)) {
+    return false;
+  }
+  const end = nameRange.end;
+  return looksLikeFunctionValue(document.lineAt(end.line).text.slice(end.character));
+}
+
 // Language servers return either a tree (DocumentSymbol) or a flat list
 // (SymbolInformation). Both are handled.
-function collect(item: vscode.DocumentSymbol | vscode.SymbolInformation, out: StartSymbol[]): void {
+function collect(
+  document: vscode.TextDocument,
+  item: vscode.DocumentSymbol | vscode.SymbolInformation,
+  out: StartSymbol[],
+): void {
   if ('children' in item) {
-    if (startKinds.has(item.kind) && !isAnonymousCallback(item.name)) {
+    if (canStart(document, item.name, item.kind, item.selectionRange)) {
       out.push({
         name: item.name,
         kind: item.kind,
@@ -63,30 +85,13 @@ function collect(item: vscode.DocumentSymbol | vscode.SymbolInformation, out: St
       });
     }
     for (const child of item.children) {
-      collect(child, out);
+      collect(document, child, out);
     }
-  } else if (startKinds.has(item.kind)) {
+  } else {
+    // A flat list only gives the whole range, so a variable can't be checked: skip it.
     const range = item.location.range;
-    out.push({ name: item.name, kind: item.kind, range, selectionRange: range });
-  }
-}
-
-// TypeScript lists inline callbacks as functions named like
-// "items.reduce() callback". A button on each of them is noise.
-function isAnonymousCallback(name: string): boolean {
-  return name.endsWith(') callback');
-}
-
-/** The innermost start symbol that contains the position, if any. */
-export function symbolAt(
-  symbols: StartSymbol[],
-  position: vscode.Position,
-): StartSymbol | undefined {
-  let best: StartSymbol | undefined;
-  for (const s of symbols) {
-    if (s.range.contains(position) && (!best || best.range.contains(s.range))) {
-      best = s;
+    if (toNodeKind(vscode.SymbolKind[item.kind]) && !isAnonymousCallback(item.name)) {
+      out.push({ name: item.name, kind: item.kind, range, selectionRange: range });
     }
   }
-  return best;
 }

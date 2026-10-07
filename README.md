@@ -4,14 +4,25 @@ See how your code connects. Click a function, method or class and Prophasis
 shows it as a card, with arrows to what it calls, who calls it, what a class
 contains and where it is used.
 
-> **Status: early development.** Phase 1 of 7 (setup and feasibility check).
+> **Status: early development.** Phase 2 of 7 (the graph engine).
 > Not yet published. The plan is in [docs/PLAN.md](docs/PLAN.md).
 
 ## What works today
 
 - A **Show flow** button (CodeLens) above every function, method and class.
 - **Prophasis: Show Flow** in the Command Palette, using the cursor position.
-- A panel that shows the starting card. Cards and arrows come in Phase 3.
+- A panel that lists, for the starting point, what it calls (numbered in code
+  order, with line numbers) and what calls it; for a class, its members. This
+  text view is temporary: cards and arrows come in Phase 3.
+
+## Settings
+
+| Setting                      | Default | What it does                                  |
+| ---------------------------- | ------- | --------------------------------------------- |
+| `prophasis.defaultDepth`     | 1       | Levels of calls loaded when a graph opens     |
+| `prophasis.maxCards`         | 150     | Most cards shown at once                      |
+| `prophasis.showExternalCode` | false   | Include library and standard-library calls    |
+| `prophasis.excludeGlobs`     | []      | File patterns to leave out, e.g. `**/test/**` |
 
 ## How it works
 
@@ -36,7 +47,9 @@ npm install        # install development tools
 npm run build      # bundle the extension into dist/
 npm run lint       # ESLint
 npm run typecheck  # TypeScript, no output files
-npm run probe      # feasibility probe in a separate copy of VS Code
+npm test           # unit tests (Vitest)
+npm run check:engine  # graph engine on the sample projects, in a real VS Code
+npm run probe      # Phase 1 feasibility probe, in a real VS Code
 ```
 
 Press **F5** in VS Code to start an Extension Development Host on the sample

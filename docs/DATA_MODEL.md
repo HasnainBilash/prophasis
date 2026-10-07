@@ -63,6 +63,8 @@ classDiagram
   `implements`.
 - **Relation** (the buttons on a card, remembered in `expanded`): `calls`,
   `calledBy`, `contains`, `usedBy`, `extends`.
+- **MemberRow kind:** a `NodeKind` (method, constructor) or `field`. Fields are
+  rows only; they never become cards.
 
 ### Field notes
 
@@ -73,12 +75,13 @@ classDiagram
 | `signature` | One line, taken from the symbol's declaration text and cut at 120 characters. |
 | `docComment` | First paragraph of the doc comment if the language server gives one, else empty. |
 | `parentId` | For a method: the id of its class card, so arrows can start from a member row. |
-| `members` | Only on class-like cards: one row per method, constructor or field. Rows cap at 40 with a "+N more" row. |
+| `members` | Only on class-like cards: one row per method, constructor or field. Rows cap at 40; `hiddenMembers` holds the rest for the "+N more" row. |
 | `isExternal` | The symbol lives outside the workspace folders (library, standard library). Hidden unless the setting allows it. |
 | `isRecursive` | A call cycle returns to this node; shown as a marker instead of drawing an endless loop. |
 | `isStale` | The file changed after this card was built. The card shows a small "code changed" mark and a refresh button. |
 | `order` | Arrow number: the position of the call inside the caller's body, counted by source position. This is **textual order, not run-time order**. |
 | `callLines` | Every line in the caller where this call happens. Two calls to the same function make one edge with two lines, not two edges. |
+| `calledBy` edges | Found through "Called by". They point the same way as `calls` (caller → callee) but have `order` 0, because the caller's other calls aren't loaded. If the caller's calls are loaded later, the edge becomes a numbered `calls` edge. There is only ever one edge per caller/callee pair. |
 | `explanation` | Text from the Explain feature. Never stored on disk. |
 
 ### Rules the code must keep
@@ -117,7 +120,7 @@ checked with Zod when it arrives, in both directions.
 | Message | Payload |
 |---|---|
 | `graph:init` | a full `FlowGraph` |
-| `graph:patch` | nodes and edges to add, ids to remove, new `hiddenCount` |
+| `graph:patch` | nodes and edges to add (an edge with an existing id replaces it), nodes whose fields changed (`updateNodes`, e.g. `expanded` or `isRecursive`), ids to remove, new `hiddenCount` |
 | `explain:result` | `nodeId` or `pathNodeIds`, text, or an error code |
 | `status` | `loading`, `languageServerStarting`, `unsupported`, `empty`, or an error message |
 | `theme` | not needed: the webview reads VS Code's CSS variables directly |
